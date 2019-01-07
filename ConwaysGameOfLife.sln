@@ -1,9 +1,11 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 14
-VisualStudioVersion = 14.0.25420.1
+# Visual Studio 15
+VisualStudioVersion = 15.0.28307.168
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ConwaysGameOfLife", "ConwaysGameOfLife\ConwaysGameOfLife.vcxproj", "{15714C36-8709-45F0-9587-15D0EEAA35B9}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ConwaysGPU", "ConwaysGPU\ConwaysGPU.vcxproj", "{7A8DD92A-1138-40D2-98CB-2E0431ACA515}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -21,8 +23,17 @@ Global
 		{15714C36-8709-45F0-9587-15D0EEAA35B9}.Release|x64.Build.0 = Release|x64
 		{15714C36-8709-45F0-9587-15D0EEAA35B9}.Release|x86.ActiveCfg = Release|Win32
 		{15714C36-8709-45F0-9587-15D0EEAA35B9}.Release|x86.Build.0 = Release|Win32
+		{7A8DD92A-1138-40D2-98CB-2E0431ACA515}.Debug|x64.ActiveCfg = Debug|x64
+		{7A8DD92A-1138-40D2-98CB-2E0431ACA515}.Debug|x64.Build.0 = Debug|x64
+		{7A8DD92A-1138-40D2-98CB-2E0431ACA515}.Debug|x86.ActiveCfg = Debug|x64
+		{7A8DD92A-1138-40D2-98CB-2E0431ACA515}.Release|x64.ActiveCfg = Release|x64
+		{7A8DD92A-1138-40D2-98CB-2E0431ACA515}.Release|x64.Build.0 = Release|x64
+		{7A8DD92A-1138-40D2-98CB-2E0431ACA515}.Release|x86.ActiveCfg = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {EBF50E78-3027-46F8-80E1-36BD9032D206}
 	EndGlobalSection
 EndGlobal
