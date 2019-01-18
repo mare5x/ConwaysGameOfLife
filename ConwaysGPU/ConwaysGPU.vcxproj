@@ -68,6 +68,16 @@
       <Command>xcopy /i /e /s /y /f "Shaders/*" "$(SolutionDir)\bin\$(Configuration)\Shaders"</Command>
       <Message>Copy the shaders to the output folder.</Message>
     </PostBuildEvent>
+    <PreBuildEvent>
+      <Command>
+      </Command>
+    </PreBuildEvent>
+    <CustomBuildStep>
+      <Command>xcopy /i /e /s /y /f "Shaders/*" "$(SolutionDir)\bin\$(Configuration)\Shaders"</Command>
+    </CustomBuildStep>
+    <CustomBuildStep>
+      <Outputs>asdf</Outputs>
+    </CustomBuildStep>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -94,6 +104,16 @@
       <Command>xcopy /i /e /s /y /f "Shaders/*" "$(SolutionDir)\bin\$(Configuration)\Shaders"</Command>
       <Message>Copy the shaders to the output folder.</Message>
     </PostBuildEvent>
+    <PreBuildEvent>
+      <Command>
+      </Command>
+    </PreBuildEvent>
+    <CustomBuildStep>
+      <Command>xcopy /i /e /s /y /f "Shaders/*" "$(SolutionDir)\bin\$(Configuration)\Shaders"</Command>
+    </CustomBuildStep>
+    <CustomBuildStep>
+      <Outputs>asdf</Outputs>
+    </CustomBuildStep>
   </ItemDefinitionGroup>
   <ItemGroup>
     <CudaCompile Include="kernel.cu" />
