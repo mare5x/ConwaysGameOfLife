@@ -60,6 +60,7 @@ void Renderer::init(int rows, int cols)
 	shader.use();
 	shader.setInt("rows", rows);
 	shader.setInt("cols", cols);
+	shader.setFloat("zoom", 1.0);
 
 	ConwaysCUDA::init(rows, cols, vbo_states);
 }
@@ -76,4 +77,10 @@ void Renderer::on_resize(int w, int h)
 {
 	shader.use();
 	shader.setVec2("screen_size", w, h);
+}
+
+void Renderer::set_zoom(float zoom)
+{
+	shader.use();
+	shader.setFloat("zoom", zoom);
 }

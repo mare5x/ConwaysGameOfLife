@@ -33,4 +33,7 @@ private:
 
 	SDL_Window* window;
 	SDL_GLContext context;
+
+	// --- Game specifics --- //
+	float zoom;
 };

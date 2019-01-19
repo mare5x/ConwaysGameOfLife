@@ -4,6 +4,7 @@ uniform vec2 screen_size;
 
 uniform int rows;
 uniform int cols;
+uniform float zoom;
 
 in float enabled;
 
@@ -14,7 +15,7 @@ bool point_on_grid(vec2 screen_pos, int parts, int width)
 	// Use modulo arithmetic to determine if the given point is on the grid.
 	// width is in pixels
 
-	float edge = min(screen_size.x, screen_size.y);
+	float edge = zoom * min(screen_size.x, screen_size.y);
 	float wrap_amount = edge / float(parts);
 	float radius = width / 2.0;
 	vec2 offset = (screen_size - edge) / 2.0;

@@ -10,10 +10,19 @@ const int HEIGHT = 600;
 const int FPS = 60;
 const float FPS_ms = 1 / static_cast<float>(FPS) * 1000;
 
+template<class T>
+const T& clamp(const T& val, const T& lo, const T& hi)
+{
+	if (val > hi) return hi;
+	if (val < lo) return lo;
+	return val;
+}
+
 
 Core::Core() :
 	width(WIDTH), height(HEIGHT),
-	renderer(), quit_requested(false)
+	renderer(), quit_requested(false),
+	zoom(1.0)
 {
 	if (!init())
 		quit();
@@ -103,6 +112,7 @@ bool Core::init_gl()
 
 	renderer.init(ROWS, COLS);
 	renderer.on_resize(width, height);
+	renderer.set_zoom(zoom);
 
 	return true;
 }
@@ -124,6 +134,11 @@ void Core::handle_input(SDL_Event & e)
 	if (e.type == SDL_WINDOWEVENT) {
 		if (e.window.event == SDL_WINDOWEVENT_RESIZED)
 			on_resize(e.window.data1, e.window.data2);
+	}
+	else if (e.type == SDL_MOUSEWHEEL) {
+		zoom += 0.1 * (e.wheel.y > 0 ? 1 : -1);
+		zoom = clamp(zoom, 0.1f, 10.0f);
+		renderer.set_zoom(zoom);
 	}
 }
 
