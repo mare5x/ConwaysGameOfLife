@@ -70,7 +70,9 @@ bool Core::init()
 		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
 		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
 
-		window = SDL_CreateWindow("Conway's GPU", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, width, height, SDL_WINDOW_OPENGL);
+		window = SDL_CreateWindow("Conway's GPU", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+								  width, height, 
+								  SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
 		if (!window) {
 			SDL_Log("CREATE WINDOW ERROR: %s", SDL_GetError());
 			return false;
@@ -100,6 +102,7 @@ bool Core::init_gl()
 	on_resize(width, height);
 
 	renderer.init(ROWS, COLS);
+	renderer.on_resize(width, height);
 
 	return true;
 }

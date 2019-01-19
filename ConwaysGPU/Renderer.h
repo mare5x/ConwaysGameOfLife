@@ -11,7 +11,7 @@ public:
 
 	void render();
 
-	void on_resize(int w, int h) { }
+	void on_resize(int w, int h);
 private:
 	GLuint vao, vbo_quad, vbo_states;
 	Shader shader;

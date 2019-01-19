@@ -71,3 +71,9 @@ void Renderer::render()
 	glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, rows * cols);
 	glBindVertexArray(0);
 }
+
+void Renderer::on_resize(int w, int h)
+{
+	shader.use();
+	shader.setVec2("screen_size", w, h);
+}

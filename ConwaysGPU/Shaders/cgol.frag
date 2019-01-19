@@ -1,40 +1,47 @@
 #version 330 core
 
+uniform vec2 screen_size;
+
 uniform int rows;
 uniform int cols;
 
 in float enabled;
-in vec2 grid_pos;
 
 out vec4 frag;
 
-bool screen_grid(float aspect_ratio, vec2 screen_pos, vec2 delta, int parts, int width)
+bool point_on_grid(vec2 screen_pos, int parts, int width)
 {
-	return mod(screen_pos.x + delta.x, 800.0 / parts) < float(width) || 
-		   mod(screen_pos.y + delta.y, 600.0 / parts * aspect_ratio) < float(width);
+	// Use modulo arithmetic to determine if the given point is on the grid.
+	// width is in pixels
+
+	float edge = min(screen_size.x, screen_size.y);
+	float wrap_amount = edge / float(parts);
+	float radius = width / 2.0;
+	vec2 offset = (screen_size - edge) / 2.0;
+	vec2 res = mod(screen_pos - offset, wrap_amount); 
+	return res.x <= radius || wrap_amount - res.x <= radius || 
+		   res.y <= radius || wrap_amount - res.y <= radius;
 }
 
-bool world_grid(float aspect_ratio, vec2 world_pos, int parts)
+bool screen_grid(vec2 screen_pos, int parts)
 {
-	return mod(world_pos.x, 1.0 / parts) < 0.001 ||
-		   mod(world_pos.y, 1.0 / parts * aspect_ratio) < 0.002;
+	return point_on_grid(screen_pos, parts, 1) || 
+	  	   point_on_grid(screen_pos, parts / 16, 2);
 }
 
 void main()
 {
 	// ALWAYS WATCH OUT FOR TYPE CONVERSION WHEN WORKING WITH FLOATS AND INTS!!!
 
-	float aspect_ratio = 800.0 / 600.0;
 	// NOTE:
 	// By default, gl_FragCoord assumes a lower-left origin for window 
 	// coordinates and assumes pixel centers are located at half-pixel centers.
-	vec4 pos = gl_FragCoord;
-	vec2 delta = vec2(0,0);
-	if (screen_grid(aspect_ratio, pos.xy, delta, rows, 1))
-		frag = vec4(1, 1, 1, 1);
 
-//	if (world_grid(1, grid_pos, rows))
-//		frag = vec4(1, 1, 1, 1);
+	float aspect_ratio = screen_size.x / screen_size.y;
+	vec4 pos = gl_FragCoord;
+
+	if (screen_grid(pos.xy, rows))
+		frag = vec4(1, 1, 1, 1);
 
 	if (enabled > 0.5)
 		frag = vec4(1, 0, 0, 1);
