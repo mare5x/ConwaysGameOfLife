@@ -13,7 +13,7 @@ Renderer::~Renderer()
 	glDeleteVertexArrays(1, &vao);
 }
 
-void Renderer::init(int rows, int cols)
+void Renderer::init(int rows, int cols, const float* world_state)
 {
 	this->rows = rows;
 	this->cols = cols;
@@ -35,21 +35,9 @@ void Renderer::init(int rows, int cols)
 	glEnableVertexAttribArray(0);
 	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(float) * 2, (void*)(0));
 
-	float* states = new float[rows * cols];
-	for (int row = 0; row < rows; ++row) {
-		for (int col = 0; col < cols; ++col) {
-			if ((row + col) % 4 == 0)
-				states[row * cols + col] = 1.0f;
-			else
-				states[row * cols + col] = 0;
-		}
-	}
-
 	glGenBuffers(1, &vbo_states);
 	glBindBuffer(GL_ARRAY_BUFFER, vbo_states);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(float) * rows * cols, states, GL_DYNAMIC_DRAW);
-
-	delete[] states;
+	glBufferData(GL_ARRAY_BUFFER, sizeof(float) * rows * cols, world_state, GL_DYNAMIC_DRAW);
 
 	glEnableVertexAttribArray(1);
 	glVertexAttribPointer(1, 1, GL_FLOAT, GL_FALSE, sizeof(GL_FLOAT), (void*)(0));
@@ -83,4 +71,11 @@ void Renderer::set_zoom(float zoom)
 {
 	shader.use();
 	shader.setFloat("zoom", zoom);
+}
+
+void Renderer::set_world_grid(const float * world)
+{
+	glBindBuffer(GL_ARRAY_BUFFER, vbo_states);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(float) * rows * cols, world, GL_DYNAMIC_DRAW);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
 }

@@ -9,7 +9,7 @@
 
 
 namespace {
-	float* world_state;  // Represents the "previous" state of the world.
+	float* world_state;  // Represents the "previous" state of the world (in GPU memory).
 	int rows, cols;
 	cudaGraphicsResource* vbo_resource;
 
@@ -37,10 +37,11 @@ int count_neighbours(float* old_state, int row, int col, int rows, int cols)
 	for (int i = 0; i < 8; ++i) {
 		// % (modulo) is used to wrap around the grid to give an illusion
 		// of an infinite grid. 
-		int neighbour_col = (col + DX[i]) % col;
+		int neighbour_col = (col + DX[i]) % cols;
 		int neighbour_row = (row + DY[i]) % rows;
 		int neighbour_idx = neighbour_row * cols + neighbour_col;
-		neighbours += old_state[neighbour_idx];
+		if (old_state[neighbour_idx] > 0.01f)
+			++neighbours;
 	}
 	return neighbours;
 }
@@ -70,7 +71,7 @@ void run_kernel(float* old_state, float* world, int rows, int cols)
 
 		int neighbours = count_neighbours(old_state, row, col, rows, cols);
 
-		bool cell_alive = old_state[i] > 0;
+		bool cell_alive = old_state[i] > 0.5f;
 		if (neighbours == 3 || (cell_alive && neighbours == 2))
 			world[i] = 1.0f;
 		else
