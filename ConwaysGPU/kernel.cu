@@ -37,8 +37,12 @@ int count_neighbours(float* old_state, int row, int col, int rows, int cols)
 	for (int i = 0; i < 8; ++i) {
 		// % (modulo) is used to wrap around the grid to give an illusion
 		// of an infinite grid. 
-		int neighbour_col = (col + DX[i]) % cols;
-		int neighbour_row = (row + DY[i]) % rows;
+		// -1 % 5 -> -1  [c++]
+		// -1 % 5 ->  4  [python]
+		// Solution for negative numbers when doing a mod n:
+		// a + n mod n, because a + k*n mod n == a mod n !
+		int neighbour_col = (cols + (col + DX[i])) % cols;
+		int neighbour_row = (rows + (row + DY[i])) % rows;
 		int neighbour_idx = neighbour_row * cols + neighbour_col;
 		if (old_state[neighbour_idx] > 0.01f)
 			++neighbours;
