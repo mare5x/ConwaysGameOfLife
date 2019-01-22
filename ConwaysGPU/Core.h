@@ -2,7 +2,7 @@
 #include "SDL.h"
 #include "glad/glad.h"
 #include "Renderer.h"
-#include <array>
+#include <vector>
 
 
 class Core {
@@ -40,11 +40,14 @@ private:
 	SDL_GLContext context;
 
 	// --- Game specifics --- //
-	const static int ROWS = 32;
-	const static int COLS = 32;
+	const static int ROWS = 1024;
+	const static int COLS = 1024;
 	
 	float zoom;
 	bool is_playing;
 
-	std::array<float, ROWS * COLS> initial_world_state;
+	// We can't just use an std::array or something similar because 
+	// it allocates memory on the stack. That causes crashes when
+	// the grid size exceeds a certain amount (stack size limit). 
+	std::vector<float> initial_world_state;
 };

@@ -1,5 +1,6 @@
 #include "Core.h"
 #include "ConwaysCUDA.h"
+#include <algorithm>
 
 const int WIDTH = 800;
 const int HEIGHT = 600;
@@ -132,7 +133,7 @@ bool Core::init_gl()
 
 void Core::init_world_state()
 {
-	initial_world_state.fill(0);
+	initial_world_state.resize(ROWS * COLS);
 	//for (int row = 0; row < ROWS; ++row) {
 	//	for (int col = 0; col < COLS; ++col) {
 	//		if ((row + col) % 4 == 0)
