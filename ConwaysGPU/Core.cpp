@@ -26,8 +26,7 @@ const T& clamp(const T& val, const T& lo, const T& hi)
 
 Core::Core() :
 	width(WIDTH), height(HEIGHT),
-	renderer(), quit_requested(false),
-	zoom(1.0), is_playing(false)
+	renderer()
 {
 	if (!init())
 		quit();
@@ -64,14 +63,19 @@ void Core::input()
 
 void Core::update()
 {
-	static unsigned int last_tick = 0;
+	static unsigned int prev_tick = 0;
+	static int accumulator = 0;
+	const int dt = 1000 / ticks_per_second;
 	if (is_playing) {
 		unsigned int ticks = SDL_GetTicks();
-		if (ticks - last_tick > 1000) {
+		accumulator += ticks - prev_tick;
+		while (accumulator > dt) {
 			ConwaysCUDA::tick();
-			last_tick = ticks;
+			++generation;
+			accumulator -= dt;
 		}
 	}
+	prev_tick = SDL_GetTicks();
 }
 
 void Core::render()
@@ -142,11 +146,21 @@ void Core::init_world_state()
 	//}
 }
 
+void Core::set_is_playing(bool val)
+{
+	is_playing = val;
+	if (is_playing) {
+		renderer.set_world_grid(initial_world_state.data());
+		generation = 0;
+	}
+}
+
 void Core::toggle_tile_state(int row, int col)
 {
 	if (col >= 0 && col < COLS && row >= 0 && row < ROWS) {
 		float& state = initial_world_state[row * COLS + col];
 		state = (state > 0 ? 0 : 1);
+		set_is_playing(false);
 		renderer.set_world_grid(initial_world_state.data());
 	}
 }
@@ -160,6 +174,16 @@ Tile Core::screen_to_tile(int x, int y)
 	int col = (x - dx) / edge * COLS;
 	int row = (y - dy) / edge * ROWS;
 	return Tile(row, col);
+}
+
+void Core::print_stats()
+{
+	printf("---- INFO ----\n");
+	printf("Window: %d px x %d px\n", width, height);
+	printf("Zoom: %.3f\n", zoom);
+	printf("Ticks per second: %.2f\n", ticks_per_second);
+	printf("%d rows by %d columns\n", ROWS, COLS);
+	printf("On generation %d\n\n", generation);
 }
 
 void Core::quit()
@@ -182,7 +206,7 @@ void Core::handle_input(SDL_Event & e)
 	}
 	else if (e.type == SDL_MOUSEWHEEL) {
 		zoom += 0.1 * (e.wheel.y > 0 ? 1 : -1);
-		zoom = clamp(zoom, 0.1f, 10.0f);
+		zoom = clamp(zoom, 0.1f, 100.0f);
 		renderer.set_zoom(zoom);
 	}
 	else if (e.type == SDL_MOUSEBUTTONUP) {
@@ -191,11 +215,16 @@ void Core::handle_input(SDL_Event & e)
 		SDL_Log("%d %d\n", tile.row, tile.col);
 	}
 	else if (e.type == SDL_KEYUP) {
-		if (e.key.keysym.sym == SDLK_SPACE) {
-			is_playing = !is_playing;
-			if (is_playing)
-				renderer.set_world_grid(initial_world_state.data());
-		}
+		if (e.key.keysym.sym == SDLK_SPACE)
+			set_is_playing(!is_playing);
+		else if (e.key.keysym.sym == SDLK_p)
+			print_stats();
+	}
+	else if (e.type == SDL_KEYDOWN) {
+		if (e.key.keysym.sym == SDLK_q)
+			ticks_per_second = clamp(ticks_per_second - 0.25f, 0.25f, 420.0f);
+		else if (e.key.keysym.sym == SDLK_e)
+			ticks_per_second = clamp(ticks_per_second + 0.25f, 0.25f, 420.0f);
 	}
 }
 

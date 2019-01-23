@@ -25,12 +25,15 @@ private:
 	void handle_input(SDL_Event& e);
 
 	void init_world_state();
+	void set_is_playing(bool val);
 	void toggle_tile_state(int row, int col);
 	struct Tile screen_to_tile(int x, int y);
 
+	void print_stats();
+
 	int width, height;
 
-	bool quit_requested;
+	bool quit_requested = false;
 
 	Renderer renderer;
 
@@ -43,8 +46,11 @@ private:
 	const static int ROWS = 1024;
 	const static int COLS = 1024;
 	
-	float zoom;
-	bool is_playing;
+	bool is_playing = false;
+	unsigned int generation = 0;
+
+	float zoom = 1.0f;
+	float ticks_per_second = 2.0f;
 
 	// We can't just use an std::array or something similar because 
 	// it allocates memory on the stack. That causes crashes when
