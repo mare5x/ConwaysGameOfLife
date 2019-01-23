@@ -1,6 +1,8 @@
 #include "Core.h"
 #include "ConwaysCUDA.h"
 #include <algorithm>
+#include <ctime>
+#include <cstdlib>
 
 const int WIDTH = 800;
 const int HEIGHT = 600;
@@ -146,6 +148,15 @@ void Core::init_world_state()
 	//}
 }
 
+void Core::randomize_world()
+{
+	set_is_playing(false);
+	std::srand(std::time(nullptr));
+	for (int i = 0; i < initial_world_state.size(); ++i)
+		initial_world_state[i] = (std::rand() % 2 == 0) ? 1.0f : 0.0f;
+	renderer.set_world_grid(initial_world_state.data());
+}
+
 void Core::set_is_playing(bool val)
 {
 	is_playing = val;
@@ -215,16 +226,21 @@ void Core::handle_input(SDL_Event & e)
 		SDL_Log("%d %d\n", tile.row, tile.col);
 	}
 	else if (e.type == SDL_KEYUP) {
-		if (e.key.keysym.sym == SDLK_SPACE)
-			set_is_playing(!is_playing);
-		else if (e.key.keysym.sym == SDLK_p)
-			print_stats();
+		switch (e.key.keysym.sym) {
+			case SDLK_SPACE: set_is_playing(!is_playing); break;
+			case SDLK_p: print_stats(); break;
+			case SDLK_r: randomize_world(); break;
+		}
 	}
 	else if (e.type == SDL_KEYDOWN) {
-		if (e.key.keysym.sym == SDLK_q)
+		switch (e.key.keysym.sym) {
+		case SDLK_q:
 			ticks_per_second = clamp(ticks_per_second - 0.25f, 0.25f, 420.0f);
-		else if (e.key.keysym.sym == SDLK_e)
+			break;
+		case SDLK_e:
 			ticks_per_second = clamp(ticks_per_second + 0.25f, 0.25f, 420.0f);
+			break;
+		}
 	}
 }
 

@@ -25,6 +25,8 @@ private:
 	void handle_input(SDL_Event& e);
 
 	void init_world_state();
+	void randomize_world();
+
 	void set_is_playing(bool val);
 	void toggle_tile_state(int row, int col);
 	struct Tile screen_to_tile(int x, int y);
@@ -43,8 +45,8 @@ private:
 	SDL_GLContext context;
 
 	// --- Game specifics --- //
-	const static int ROWS = 1024;
-	const static int COLS = 1024;
+	const static int ROWS = 2048; // 1024;
+	const static int COLS = 2048; // 1024;
 	
 	bool is_playing = false;
 	unsigned int generation = 0;
