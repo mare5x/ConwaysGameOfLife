@@ -73,6 +73,12 @@ void Renderer::set_zoom(float zoom)
 	shader.setFloat("zoom", zoom);
 }
 
+void Renderer::set_camera_center(float x, float y)
+{
+	shader.use();
+	shader.setVec2("camera_center", x, y);
+}
+
 void Renderer::set_world_grid(const float * world)
 {
 	glBindBuffer(GL_ARRAY_BUFFER, vbo_states);

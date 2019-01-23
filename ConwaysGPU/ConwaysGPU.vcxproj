@@ -131,6 +131,7 @@
     <ClInclude Include="helper_string.h" />
     <ClInclude Include="Renderer.h" />
     <ClInclude Include="Shaders\Shader.h" />
+    <ClInclude Include="vec2.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Shaders\cgol.frag" />

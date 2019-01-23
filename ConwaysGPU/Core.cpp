@@ -4,17 +4,16 @@
 #include <ctime>
 #include <cstdlib>
 
+const int ROWS = 1024; // 2048
+const int COLS = 1024; // 2048
+
+const vec2<float> base_camera_center(0.5f, 0.5f);
+	
 const int WIDTH = 800;
 const int HEIGHT = 600;
 
 const int FPS = 60;
 const float FPS_ms = 1 / static_cast<float>(FPS) * 1000;
-
-struct Tile {
-	Tile() = default; 
-	Tile(int row, int col) : row(row), col(col) {}
-	int row, col;
-};
 
 
 template<class T>
@@ -28,7 +27,7 @@ const T& clamp(const T& val, const T& lo, const T& hi)
 
 Core::Core() :
 	width(WIDTH), height(HEIGHT),
-	renderer()
+	renderer(), camera_center(0.5f, 0.5f)
 {
 	if (!init())
 		quit();
@@ -133,6 +132,7 @@ bool Core::init_gl()
 	renderer.init(ROWS, COLS, initial_world_state.data());
 	renderer.on_resize(width, height);
 	renderer.set_zoom(zoom);
+	renderer.set_camera_center(camera_center.x, camera_center.y);
 
 	return true;
 }
@@ -176,15 +176,20 @@ void Core::toggle_tile_state(int row, int col)
 	}
 }
 
-Tile Core::screen_to_tile(int x, int y)
+vec2<float> Core::screen_to_world(int x, int y)
 {
 	y = height - y;  // screen coordinate (0,0) is top left
-	int edge = std::min(width, height) * zoom;
-	float dx = (width - edge) / 2.0f;
-	float dy = (height - edge) / 2.0f;
-	int col = (x - dx) / edge * COLS;
-	int row = (y - dy) / edge * ROWS;
-	return Tile(row, col);
+	float edge = std::min(width, height) * zoom;
+	vec2<float> cam_offset = (base_camera_center - camera_center) * edge;
+	vec2<float> offset = (vec2<float>(width, height) - edge) / 2.0f + cam_offset;
+	return (vec2<float>(x, y) - offset) / edge;
+}
+
+void Core::move_camera_center(float dx, float dy)
+{
+	camera_center.x += dx;
+	camera_center.y += dy;
+	renderer.set_camera_center(camera_center.x, camera_center.y);
 }
 
 void Core::print_stats()
@@ -192,6 +197,7 @@ void Core::print_stats()
 	printf("---- INFO ----\n");
 	printf("Window: %d px x %d px\n", width, height);
 	printf("Zoom: %.3f\n", zoom);
+	printf("Camera center: (%.3f, %.3f)\n", camera_center.x, camera_center.y);
 	printf("Ticks per second: %.2f\n", ticks_per_second);
 	printf("%d rows by %d columns\n", ROWS, COLS);
 	printf("On generation %d\n\n", generation);
@@ -211,6 +217,8 @@ void Core::quit()
 
 void Core::handle_input(SDL_Event & e)
 {
+	static vec2<float> cam_delta;
+
 	if (e.type == SDL_WINDOWEVENT) {
 		if (e.window.event == SDL_WINDOWEVENT_RESIZED)
 			on_resize(e.window.data1, e.window.data2);
@@ -221,27 +229,41 @@ void Core::handle_input(SDL_Event & e)
 		renderer.set_zoom(zoom);
 	}
 	else if (e.type == SDL_MOUSEBUTTONUP) {
-		Tile tile = screen_to_tile(e.button.x, e.button.y);
-		toggle_tile_state(tile.row, tile.col);
-		SDL_Log("%d %d\n", tile.row, tile.col);
+		vec2<float> world_pos = screen_to_world(e.button.x, e.button.y);
+		int row = world_pos.y * ROWS;
+		int col = world_pos.x * COLS;
+		toggle_tile_state(row, col);
+		printf("%d %d (%.2f %.2f)\n", row, col, world_pos.x, world_pos.y);
+	}
+	else if (e.type == SDL_KEYDOWN) {
+		switch (e.key.keysym.sym) {
+			case SDLK_q:
+				ticks_per_second = clamp(ticks_per_second - 0.25f, 0.25f, 420.0f);
+				break;
+			case SDLK_e:
+				ticks_per_second = clamp(ticks_per_second + 0.25f, 0.25f, 420.0f);
+				break;
+			case SDLK_w: cam_delta.y =  0.01f / zoom; break;
+			case SDLK_s: cam_delta.y = -0.01f / zoom; break;
+			case SDLK_d: cam_delta.x =  0.01f / zoom; break;
+			case SDLK_a: cam_delta.x = -0.01f / zoom; break;
+		}
 	}
 	else if (e.type == SDL_KEYUP) {
 		switch (e.key.keysym.sym) {
 			case SDLK_SPACE: set_is_playing(!is_playing); break;
 			case SDLK_p: print_stats(); break;
 			case SDLK_r: randomize_world(); break;
+
+			case SDLK_w: cam_delta.y = 0; break;
+			case SDLK_s: cam_delta.y = 0; break;
+			case SDLK_d: cam_delta.x = 0; break;
+			case SDLK_a: cam_delta.x = 0; break;
 		}
 	}
-	else if (e.type == SDL_KEYDOWN) {
-		switch (e.key.keysym.sym) {
-		case SDLK_q:
-			ticks_per_second = clamp(ticks_per_second - 0.25f, 0.25f, 420.0f);
-			break;
-		case SDLK_e:
-			ticks_per_second = clamp(ticks_per_second + 0.25f, 0.25f, 420.0f);
-			break;
-		}
-	}
+	
+	if (std::abs(cam_delta.x) > 1e-6 || std::abs(cam_delta.y) > 1e-6)
+		move_camera_center(cam_delta.x, cam_delta.y);
 }
 
 void Core::on_resize(int w, int h)

@@ -3,18 +3,24 @@ layout (location = 0) in vec2 norm_pos;
 layout (location = 1) in float state_enabled;
 
 uniform vec2 screen_size;
-
 uniform int rows;
 uniform int cols;
 uniform float zoom;
+uniform vec2 camera_center;  // in [0, 1] coordinates
 
 out float enabled;
+
+const vec2 base_camera_center = vec2(0.5, 0.5);
 
 // Work with coordinates in the range [0, 1] and then transform
 // them to OpenGL space with this function ([-1, 1]).
 vec2 norm_to_vertex(vec2 pos)
 {
 	// Fit everything into a square of size edge centered on screen.
+
+	vec2 cam_offset = base_camera_center - camera_center;
+	pos += cam_offset;
+
 	float edge = zoom * min(screen_size.x, screen_size.y);
 	vec2 edge_norm = edge / screen_size * 2.0;  // component-wise operations
 	return pos * edge_norm - edge_norm / 2.0;
