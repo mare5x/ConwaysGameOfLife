@@ -29,7 +29,7 @@ private:
 	void randomize_world();
 
 	void set_is_playing(bool val);
-	void toggle_tile_state(int row, int col);
+	void toggle_tile_state(int x, int y);
 
 	// Convert (x, y) in screen coordinates to world coordinates [0, 1].
 	vec2<float> screen_to_world(int x, int y);

@@ -166,14 +166,18 @@ void Core::set_is_playing(bool val)
 	}
 }
 
-void Core::toggle_tile_state(int row, int col)
+void Core::toggle_tile_state(int x, int y)
 {
+	vec2<float> world_pos = screen_to_world(x, y);
+	int row = world_pos.y * ROWS;
+	int col = world_pos.x * COLS;
 	if (col >= 0 && col < COLS && row >= 0 && row < ROWS) {
 		float& state = initial_world_state[row * COLS + col];
 		state = (state > 0 ? 0 : 1);
 		set_is_playing(false);
 		renderer.set_world_grid(initial_world_state.data());
 	}
+	printf("%d %d (%.2f %.2f)\n", row, col, world_pos.x, world_pos.y);
 }
 
 vec2<float> Core::screen_to_world(int x, int y)
@@ -232,21 +236,16 @@ void Core::handle_input(SDL_Event & e)
 {
 	static vec2<float> cam_delta;
 
-	if (e.type == SDL_WINDOWEVENT) {
-		if (e.window.event == SDL_WINDOWEVENT_RESIZED)
+	switch (e.type) {
+	case SDL_WINDOWEVENT:
+		switch (e.window.event) {
+		case SDL_WINDOWEVENT_RESIZED:
 			on_resize(e.window.data1, e.window.data2);
-	}
-	else if (e.type == SDL_MOUSEWHEEL) {
-		update_zoom(e.wheel.y);
-	}
-	else if (e.type == SDL_MOUSEBUTTONUP) {
-		vec2<float> world_pos = screen_to_world(e.button.x, e.button.y);
-		int row = world_pos.y * ROWS;
-		int col = world_pos.x * COLS;
-		toggle_tile_state(row, col);
-		printf("%d %d (%.2f %.2f)\n", row, col, world_pos.x, world_pos.y);
-	}
-	else if (e.type == SDL_KEYDOWN) {
+		}
+		break;
+	case SDL_MOUSEWHEEL: update_zoom(e.wheel.y); break;
+	case SDL_MOUSEBUTTONUP: toggle_tile_state(e.button.x, e.button.y); break;
+	case SDL_KEYDOWN:
 		switch (e.key.keysym.sym) {
 			case SDLK_q:
 				ticks_per_second = clamp(ticks_per_second - 0.25f, 0.25f, 420.0f);
@@ -259,8 +258,8 @@ void Core::handle_input(SDL_Event & e)
 			case SDLK_d: cam_delta.x =  0.01f / zoom; break;
 			case SDLK_a: cam_delta.x = -0.01f / zoom; break;
 		}
-	}
-	else if (e.type == SDL_KEYUP) {
+		break;
+	case SDL_KEYUP:
 		switch (e.key.keysym.sym) {
 			case SDLK_SPACE: set_is_playing(!is_playing); break;
 			case SDLK_p: print_stats(); break;
@@ -271,6 +270,7 @@ void Core::handle_input(SDL_Event & e)
 			case SDLK_d: cam_delta.x = 0; break;
 			case SDLK_a: cam_delta.x = 0; break;
 		}
+		break;
 	}
 	
 	if (std::abs(cam_delta.x) > 1e-6 || std::abs(cam_delta.y) > 1e-6)
