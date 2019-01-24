@@ -35,6 +35,7 @@ private:
 	vec2<float> screen_to_world(int x, int y);
 
 	void move_camera_center(float dx, float dy);
+	void update_zoom(int sign);
 
 	void print_stats();
 

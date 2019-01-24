@@ -192,6 +192,19 @@ void Core::move_camera_center(float dx, float dy)
 	renderer.set_camera_center(camera_center.x, camera_center.y);
 }
 
+void Core::update_zoom(int sign)
+{
+	// Zoom as if travelling on the exponential function.
+	static float zoom_x = 0.0f;
+
+	// Cool way to get the sign (- or +) of a number.
+	sign = (sign > 0) - (sign < 0);
+
+	zoom_x = clamp(zoom_x + 0.1f * sign, -1.0f, 5.0f);
+	zoom = std::exp(zoom_x);
+	renderer.set_zoom(zoom);
+}
+
 void Core::print_stats()
 {
 	printf("---- INFO ----\n");
@@ -224,9 +237,7 @@ void Core::handle_input(SDL_Event & e)
 			on_resize(e.window.data1, e.window.data2);
 	}
 	else if (e.type == SDL_MOUSEWHEEL) {
-		zoom += 0.1 * (e.wheel.y > 0 ? 1 : -1);
-		zoom = clamp(zoom, 0.1f, 100.0f);
-		renderer.set_zoom(zoom);
+		update_zoom(e.wheel.y);
 	}
 	else if (e.type == SDL_MOUSEBUTTONUP) {
 		vec2<float> world_pos = screen_to_world(e.button.x, e.button.y);
