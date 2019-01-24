@@ -6,7 +6,7 @@ uniform int cols;
 uniform float zoom;
 uniform vec2 camera_center;  // in [0, 1] coordinates
 
-in float enabled;
+flat in int tile_state;
 
 out vec4 frag;
 
@@ -50,6 +50,6 @@ void main()
 	if (screen_grid(pos.xy, rows))
 		frag = vec4(1, 1, 1, 1);
 
-	if (enabled > 0.5)
+	if (tile_state > 0)
 		frag = vec4(1, 0, 0, 1);
 }

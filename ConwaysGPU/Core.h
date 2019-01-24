@@ -61,5 +61,5 @@ private:
 	// We can't just use an std::array or something similar because 
 	// it allocates memory on the stack. That causes crashes when
 	// the grid size exceeds a certain amount (stack size limit). 
-	std::vector<float> initial_world_state;
+	std::vector<GLbyte> initial_world_state;
 };

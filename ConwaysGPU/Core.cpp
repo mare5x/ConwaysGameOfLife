@@ -153,7 +153,7 @@ void Core::randomize_world()
 	set_is_playing(false);
 	std::srand(std::time(nullptr));
 	for (int i = 0; i < initial_world_state.size(); ++i)
-		initial_world_state[i] = (std::rand() % 2 == 0) ? 1.0f : 0.0f;
+		initial_world_state[i] = (std::rand() % 2 == 0) ? 1 : 0;
 	renderer.set_world_grid(initial_world_state.data());
 }
 
@@ -172,7 +172,7 @@ void Core::toggle_tile_state(int x, int y)
 	int row = world_pos.y * ROWS;
 	int col = world_pos.x * COLS;
 	if (col >= 0 && col < COLS && row >= 0 && row < ROWS) {
-		float& state = initial_world_state[row * COLS + col];
+		GLbyte& state = initial_world_state[row * COLS + col];
 		state = (state > 0 ? 0 : 1);
 		set_is_playing(false);
 		renderer.set_world_grid(initial_world_state.data());
