@@ -11,14 +11,27 @@ flat in int tile_state;
 out vec4 frag;
 
 const vec2 base_camera_center = vec2(0.5, 0.5);
+const float MAX_GRID_K = 16;
 
 bool point_on_grid(vec2 screen_pos, int parts, int width)
 {
 	// Use modulo arithmetic to determine if the given point is on the grid.
 	// width is in pixels
 
-	float edge = zoom * min(screen_size.x, screen_size.y);
-	float wrap_amount = edge / float(parts);
+	float base_edge = min(screen_size.x, screen_size.y);
+	float edge = zoom * base_edge;
+
+	// How many times do we have to split the grid in half
+	// so that the distance between two grid lines is at most
+	// base_edge/MAX_GRID_K apart (which is a constant)?
+	// Solve for x (:= max_parts):
+	// \frac{edge}{2^x} = \frac{base_edge}{MAX_GRID_K}
+
+	int max_parts = int(log2(MAX_GRID_K * edge / base_edge));
+
+	// wrap_amount is basically the distance between the grid lines in pixels
+
+	float wrap_amount = max(edge / exp2(max_parts), edge / float(parts));
 	float radius = width / 2.0;
 
 	vec2 cam_offset = base_camera_center - camera_center;
@@ -48,7 +61,7 @@ void main()
 	vec4 pos = gl_FragCoord;
 
 	if (screen_grid(pos.xy, rows))
-		frag = vec4(1, 1, 1, 1);
+		frag = vec4(0.5, 0.5, 0.5, 0.01);  // TODO alpha
 
 	if (tile_state > 0)
 		frag = vec4(1, 0, 0, 1);

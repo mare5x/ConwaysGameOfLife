@@ -3,7 +3,6 @@
 
 Renderer::Renderer()
 {
-
 }
 
 Renderer::~Renderer()
