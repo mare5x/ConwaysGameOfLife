@@ -25,7 +25,7 @@ private:
 
 	void handle_input(SDL_Event& e);
 
-	void init_world_state();
+	void init_world_state(bool send_to_gpu = false);
 	void randomize_world();
 
 	void set_is_playing(bool val);
@@ -56,7 +56,7 @@ private:
 
 	vec2<float> camera_center;
 	float zoom = 1.0f;
-	float ticks_per_second = 2.0f;
+	float ticks_per_second = 10.0f;
 
 	// We can't just use an std::array or something similar because 
 	// it allocates memory on the stack. That causes crashes when

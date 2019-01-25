@@ -64,19 +64,19 @@ void Core::input()
 
 void Core::update()
 {
-	static unsigned int prev_tick = 0;
+	static unsigned int prev_ticks = 0;
 	static int accumulator = 0;
 	const int dt = 1000 / ticks_per_second;
 	if (is_playing) {
 		unsigned int ticks = SDL_GetTicks();
-		accumulator += ticks - prev_tick;
+		accumulator += ticks - prev_ticks;
 		while (accumulator > dt) {
 			ConwaysCUDA::tick();
 			++generation;
 			accumulator -= dt;
 		}
 	}
-	prev_tick = SDL_GetTicks();
+	prev_ticks = SDL_GetTicks();
 }
 
 void Core::render()
@@ -140,15 +140,12 @@ bool Core::init_gl()
 	return true;
 }
 
-void Core::init_world_state()
+void Core::init_world_state(bool send_to_gpu)
 {
 	initial_world_state.resize(ROWS * COLS);
-	//for (int row = 0; row < ROWS; ++row) {
-	//	for (int col = 0; col < COLS; ++col) {
-	//		if ((row + col) % 4 == 0)
-	//			initial_world_state[row * COLS + col] = 1.0f;
-	//	}
-	//}
+	std::fill(initial_world_state.begin(), initial_world_state.end(), 0);
+	if (send_to_gpu)
+		renderer.set_world_grid(initial_world_state.data());
 }
 
 void Core::randomize_world()
@@ -267,6 +264,7 @@ void Core::handle_input(SDL_Event & e)
 			case SDLK_SPACE: set_is_playing(!is_playing); break;
 			case SDLK_p: print_stats(); break;
 			case SDLK_r: randomize_world(); break;
+			case SDLK_c: init_world_state(true); break;
 
 			case SDLK_w: cam_delta.y = 0; break;
 			case SDLK_s: cam_delta.y = 0; break;
