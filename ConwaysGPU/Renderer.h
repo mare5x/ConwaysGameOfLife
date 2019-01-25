@@ -19,6 +19,7 @@ public:
 	void set_camera_center(float x, float y);
 
 	void set_world_grid(const GLbyte * world);
+	void set_grid_visibility(bool visible);
 private:
 	GLuint vao, vbo_quad, vbo_states;
 	Shader shader;

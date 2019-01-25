@@ -52,6 +52,7 @@ private:
 
 	// --- Game specifics --- //
 	bool is_playing = false;
+	bool is_grid_visible = true;
 	unsigned int generation = 0;
 
 	vec2<float> camera_center;

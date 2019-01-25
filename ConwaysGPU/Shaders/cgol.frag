@@ -5,6 +5,7 @@ uniform int rows;
 uniform int cols;
 uniform float zoom;
 uniform vec2 camera_center;  // in [0, 1] coordinates
+uniform bool show_grid;
 
 flat in int tile_state;
 
@@ -60,7 +61,7 @@ void main()
 	float aspect_ratio = screen_size.x / screen_size.y;
 	vec4 pos = gl_FragCoord;
 
-	if (screen_grid(pos.xy, rows))
+	if (show_grid && screen_grid(pos.xy, rows))
 		frag = vec4(1, 1, 1, 0.3);
 
 	if (tile_state > 0)

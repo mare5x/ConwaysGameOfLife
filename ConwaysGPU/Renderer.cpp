@@ -64,6 +64,7 @@ void Renderer::init(int rows, int cols, const GLbyte * world_state)
 	shader.setInt("rows", rows);
 	shader.setInt("cols", cols);
 	shader.setFloat("zoom", 1.0);
+	shader.setBool("show_grid", true);
 
 	ConwaysCUDA::init(rows, cols, vbo_states);
 }
@@ -99,4 +100,10 @@ void Renderer::set_world_grid(const GLbyte * world)
 	glBindBuffer(GL_ARRAY_BUFFER, vbo_states);
 	glBufferData(GL_ARRAY_BUFFER, sizeof(GLbyte) * rows * cols, world, GL_DYNAMIC_DRAW);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
+}
+
+void Renderer::set_grid_visibility(bool visible)
+{
+	shader.use();
+	shader.setBool("show_grid", visible);
 }

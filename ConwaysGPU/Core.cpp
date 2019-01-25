@@ -265,6 +265,7 @@ void Core::handle_input(SDL_Event & e)
 			case SDLK_p: print_stats(); break;
 			case SDLK_r: randomize_world(); break;
 			case SDLK_c: init_world_state(true); break;
+			case SDLK_g: renderer.set_grid_visibility(is_grid_visible = !is_grid_visible); break;
 
 			case SDLK_w: cam_delta.y = 0; break;
 			case SDLK_s: cam_delta.y = 0; break;
