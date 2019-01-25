@@ -79,7 +79,7 @@ void run_kernel(GLbyte* old_state, GLbyte* world, int rows, int cols)
 		if (neighbours == 3 || (cell_alive && neighbours == 2))
 			world[i] = 1;
 		else
-			world[i] = 0;
+			world[i] = -neighbours;
 	}
 }
 

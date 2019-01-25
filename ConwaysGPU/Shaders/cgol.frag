@@ -58,12 +58,17 @@ void main()
 	// By default, gl_FragCoord assumes a lower-left origin for window 
 	// coordinates and assumes pixel centers are located at half-pixel centers.
 
-	float aspect_ratio = screen_size.x / screen_size.y;
-	vec4 pos = gl_FragCoord;
-
-	if (show_grid && screen_grid(pos.xy, rows))
+	if (show_grid && screen_grid(gl_FragCoord.xy, rows))
 		frag = vec4(1, 1, 1, 0.3);
 
+	// Tile state:
+	//  1  ; if alive
+	//  0  ; 0 neighbours
+	// -n  ; n is the number of neighbours of the PREVIOUS state
 	if (tile_state > 0)
 		frag = vec4(1, 0, 0, 1);
+	else if (tile_state < 0) {
+		int neighbours = abs(tile_state);
+		frag = vec4(0, 1, 1, 0.5) * mix(0.2, 1.0, neighbours / 8.0f);
+	}
 }
