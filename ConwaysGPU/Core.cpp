@@ -126,6 +126,9 @@ bool Core::init()
 bool Core::init_gl()
 {
 	SDL_GL_SetSwapInterval(0);  // uncap FPS
+	
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
 	on_resize(width, height);
 

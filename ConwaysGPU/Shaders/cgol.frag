@@ -61,7 +61,7 @@ void main()
 	vec4 pos = gl_FragCoord;
 
 	if (screen_grid(pos.xy, rows))
-		frag = vec4(0.5, 0.5, 0.5, 0.01);  // TODO alpha
+		frag = vec4(1, 1, 1, 0.3);
 
 	if (tile_state > 0)
 		frag = vec4(1, 0, 0, 1);
