@@ -1,10 +1,6 @@
 #include "Renderer.h"
 #include "ConwaysCUDA.h"
 
-Renderer::Renderer()
-{
-}
-
 Renderer::~Renderer()
 {
 	glDeleteBuffers(1, &vbo_quad);

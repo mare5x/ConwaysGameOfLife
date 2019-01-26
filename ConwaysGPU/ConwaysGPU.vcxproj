@@ -42,10 +42,10 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
-    <OutDir>$(SolutionDir)\bin\$(Configuration)\</OutDir>
+    <OutDir>$(SolutionDir)\bin\cuda\$(Configuration)\</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <OutDir>$(SolutionDir)\bin\$(Configuration)\</OutDir>
+    <OutDir>$(SolutionDir)\bin\cuda\$(Configuration)\</OutDir>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
@@ -65,18 +65,21 @@
       <CodeGeneration>compute_30,sm_30;compute_35,sm_35;compute_37,sm_37;compute_50,sm_50;compute_52,sm_52;compute_60,sm_60;compute_61,sm_61;compute_70,sm_70;compute_75,sm_75;</CodeGeneration>
     </CudaCompile>
     <PostBuildEvent>
-      <Command>xcopy /i /e /s /y /f "Shaders/*" "$(SolutionDir)\bin\$(Configuration)\Shaders"</Command>
-      <Message>Copy the shaders to the output folder.</Message>
+      <Command>
+      </Command>
+      <Message>
+      </Message>
     </PostBuildEvent>
     <PreBuildEvent>
       <Command>
       </Command>
     </PreBuildEvent>
     <CustomBuildStep>
-      <Command>xcopy /i /e /s /y /f "Shaders/*" "$(SolutionDir)\bin\$(Configuration)\Shaders"</Command>
+      <Command>xcopy /i /e /s /y /f "Shaders/*" "$(SolutionDir)\bin\cuda\$(Configuration)\Shaders"</Command>
     </CustomBuildStep>
     <CustomBuildStep>
       <Outputs>asdf</Outputs>
+      <Message>Copy the shaders to the output folder.</Message>
     </CustomBuildStep>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -101,18 +104,21 @@
       <CodeGeneration>compute_30,sm_30;compute_35,sm_35;compute_37,sm_37;compute_50,sm_50;compute_52,sm_52;compute_60,sm_60;compute_61,sm_61;compute_70,sm_70;compute_75,sm_75;</CodeGeneration>
     </CudaCompile>
     <PostBuildEvent>
-      <Command>xcopy /i /e /s /y /f "Shaders/*" "$(SolutionDir)\bin\$(Configuration)\Shaders"</Command>
-      <Message>Copy the shaders to the output folder.</Message>
+      <Command>
+      </Command>
+      <Message>
+      </Message>
     </PostBuildEvent>
     <PreBuildEvent>
       <Command>
       </Command>
     </PreBuildEvent>
     <CustomBuildStep>
-      <Command>xcopy /i /e /s /y /f "Shaders/*" "$(SolutionDir)\bin\$(Configuration)\Shaders"</Command>
+      <Command>xcopy /i /e /s /y /f "Shaders/*" "$(SolutionDir)\bin\cuda\$(Configuration)\Shaders"</Command>
     </CustomBuildStep>
     <CustomBuildStep>
       <Outputs>asdf</Outputs>
+      <Message>Copy the shaders to the output folder.</Message>
     </CustomBuildStep>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -120,13 +126,13 @@
     <CudaCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="Core.cpp" />
+    <ClCompile Include="ConwaysGameOfLife.cpp" />
     <ClCompile Include="glad.c" />
     <ClCompile Include="Renderer.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ConwaysCUDA.h" />
-    <ClInclude Include="Core.h" />
+    <ClInclude Include="ConwaysGameOfLife.h" />
     <ClInclude Include="helper_cuda.h" />
     <ClInclude Include="helper_string.h" />
     <ClInclude Include="Renderer.h" />

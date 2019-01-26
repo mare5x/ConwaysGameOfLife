@@ -6,10 +6,10 @@
 #include "vec2.h"
 
 
-class Core {
+class ConwaysGameOfLife {
 public:
-	Core();
-	~Core() { quit(); }
+	ConwaysGameOfLife();
+	~ConwaysGameOfLife() { quit(); }
 
 	void run();
 

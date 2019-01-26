@@ -4,7 +4,7 @@
 
 class Renderer {
 public:
-	Renderer();
+	Renderer() = default;
 	~Renderer();
 
 	void init(int rows, int cols, const GLbyte * world_state);

@@ -1,8 +1,9 @@
-#include "Core.h"
+#include "ConwaysGameOfLife.h"
 #include "ConwaysCUDA.h"
 #include <algorithm>
 #include <ctime>
 #include <cstdlib>
+
 
 const int ROWS = 1024; // 2048
 const int COLS = 1024; // 2048
@@ -13,7 +14,7 @@ const int WIDTH = 800;
 const int HEIGHT = 600;
 
 const int FPS = 60;
-const float FPS_ms = 1 / static_cast<float>(FPS) * 1000;
+const int FPS_ms = 1000 / FPS;
 
 
 template<class T>
@@ -25,7 +26,7 @@ const T& clamp(const T& val, const T& lo, const T& hi)
 }
 
 
-Core::Core() :
+ConwaysGameOfLife::ConwaysGameOfLife() :
 	width(WIDTH), height(HEIGHT),
 	renderer(), camera_center(0.5f, 0.5f), camera_velocity()
 {
@@ -33,7 +34,7 @@ Core::Core() :
 		quit();
 }
 
-void Core::run()
+void ConwaysGameOfLife::run()
 {
 	while (!quit_requested) {
 		unsigned int start_time = SDL_GetTicks();
@@ -50,7 +51,7 @@ void Core::run()
 	}
 }
 
-void Core::input()
+void ConwaysGameOfLife::input()
 {
 	while (SDL_PollEvent(&cur_event)) {
 		if (cur_event.type == SDL_QUIT) {
@@ -62,7 +63,7 @@ void Core::input()
 	}
 }
 
-void Core::update()
+void ConwaysGameOfLife::update()
 {
 	static unsigned int prev_ticks = 0;
 	static int accumulator = 0;
@@ -83,7 +84,7 @@ void Core::update()
 	prev_ticks = SDL_GetTicks();
 }
 
-void Core::render()
+void ConwaysGameOfLife::render()
 {
 	glClearColor(0, 0, 0, 1);
 	glClear(GL_COLOR_BUFFER_BIT);
@@ -93,7 +94,7 @@ void Core::render()
 	SDL_GL_SwapWindow(window);
 }
 
-bool Core::init()
+bool ConwaysGameOfLife::init()
 {
 	if (SDL_Init(SDL_INIT_VIDEO) == 0) {
 		SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
@@ -127,7 +128,7 @@ bool Core::init()
 	}
 }
 
-bool Core::init_gl()
+bool ConwaysGameOfLife::init_gl()
 {
 	SDL_GL_SetSwapInterval(0);  // uncap FPS
 	
@@ -144,7 +145,7 @@ bool Core::init_gl()
 	return true;
 }
 
-void Core::init_world_state(bool send_to_gpu)
+void ConwaysGameOfLife::init_world_state(bool send_to_gpu)
 {
 	initial_world_state.resize(ROWS * COLS);
 	std::fill(initial_world_state.begin(), initial_world_state.end(), 0);
@@ -152,7 +153,7 @@ void Core::init_world_state(bool send_to_gpu)
 		renderer.set_world_grid(initial_world_state.data());
 }
 
-void Core::randomize_world()
+void ConwaysGameOfLife::randomize_world()
 {
 	set_is_playing(false);
 	std::srand(std::time(nullptr));
@@ -161,7 +162,7 @@ void Core::randomize_world()
 	renderer.set_world_grid(initial_world_state.data());
 }
 
-void Core::set_is_playing(bool val)
+void ConwaysGameOfLife::set_is_playing(bool val)
 {
 	is_playing = val;
 	if (is_playing) {
@@ -170,7 +171,7 @@ void Core::set_is_playing(bool val)
 	}
 }
 
-void Core::toggle_tile_state(int x, int y)
+void ConwaysGameOfLife::toggle_tile_state(int x, int y)
 {
 	vec2<float> world_pos = screen_to_world(x, y);
 	int row = world_pos.y * ROWS;
@@ -184,7 +185,7 @@ void Core::toggle_tile_state(int x, int y)
 	printf("%d %d (%.2f %.2f)\n", row, col, world_pos.x, world_pos.y);
 }
 
-vec2<float> Core::screen_to_world(int x, int y)
+vec2<float> ConwaysGameOfLife::screen_to_world(int x, int y)
 {
 	y = height - y;  // screen coordinate (0,0) is top left
 	float edge = std::min(width, height) * zoom;
@@ -193,14 +194,14 @@ vec2<float> Core::screen_to_world(int x, int y)
 	return (vec2<float>(x, y) - offset) / edge;
 }
 
-void Core::move_camera_center(float dx, float dy)
+void ConwaysGameOfLife::move_camera_center(float dx, float dy)
 {
 	camera_center.x += dx;
 	camera_center.y += dy;
 	renderer.set_camera_center(camera_center.x, camera_center.y);
 }
 
-void Core::update_zoom(int sign)
+void ConwaysGameOfLife::update_zoom(int sign)
 {
 	// Zoom as if travelling on the exponential function.
 	static float zoom_x = 0.0f;
@@ -213,7 +214,7 @@ void Core::update_zoom(int sign)
 	renderer.set_zoom(zoom);
 }
 
-void Core::print_stats()
+void ConwaysGameOfLife::print_stats()
 {
 	printf("---- INFO ----\n");
 	printf("Window: %d px x %d px\n", width, height);
@@ -224,7 +225,7 @@ void Core::print_stats()
 	printf("On generation %d\n\n", generation);
 }
 
-void Core::quit()
+void ConwaysGameOfLife::quit()
 {
 	ConwaysCUDA::exit();
 
@@ -236,7 +237,7 @@ void Core::quit()
 	SDL_Quit();
 }
 
-void Core::handle_input(SDL_Event & e)
+void ConwaysGameOfLife::handle_input(SDL_Event & e)
 {
 	switch (e.type) {
 	case SDL_WINDOWEVENT:
@@ -278,7 +279,7 @@ void Core::handle_input(SDL_Event & e)
 	}
 }
 
-void Core::on_resize(int w, int h)
+void ConwaysGameOfLife::on_resize(int w, int h)
 {
 	glViewport(0, 0, w, h);
 	width = w;

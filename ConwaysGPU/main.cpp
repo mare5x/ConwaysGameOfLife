@@ -1,9 +1,9 @@
-#include "Core.h"
+#include "ConwaysGameOfLife.h"
 
 
 int main(int argc, char* argv[])
 {
-	Core app;
-	app.run();
+	ConwaysGameOfLife game;
+	game.run();
 	return 0;
 }

@@ -1,3 +1,5 @@
+// Source: https://learnopengl.com/
+
 #ifndef SHADER_H
 #define SHADER_H
 
@@ -13,7 +15,7 @@ class Shader
 public:
     unsigned int ID;
 
-	Shader() : ID(-1) { }
+	Shader() : ID((unsigned int)(-1)) { }
 
     // constructor generates the shader on the fly
     // ------------------------------------------------------------------------
@@ -63,8 +65,6 @@ public:
         const char * fShaderCode = fragmentCode.c_str();
         // 2. compile shaders
         unsigned int vertex, fragment;
-        int success;
-        char infoLog[512];
         // vertex shader
         vertex = glCreateShader(GL_VERTEX_SHADER);
         glShaderSource(vertex, 1, &vShaderCode, NULL);
