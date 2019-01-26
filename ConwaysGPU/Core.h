@@ -55,6 +55,7 @@ private:
 	bool is_grid_visible = true;
 	unsigned int generation = 0;
 
+	vec2<float> camera_velocity;
 	vec2<float> camera_center;
 	float zoom = 1.0f;
 	float ticks_per_second = 10.0f;

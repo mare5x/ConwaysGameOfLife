@@ -27,7 +27,7 @@ const T& clamp(const T& val, const T& lo, const T& hi)
 
 Core::Core() :
 	width(WIDTH), height(HEIGHT),
-	renderer(), camera_center(0.5f, 0.5f)
+	renderer(), camera_center(0.5f, 0.5f), camera_velocity()
 {
 	if (!init())
 		quit();
@@ -67,6 +67,10 @@ void Core::update()
 	static unsigned int prev_ticks = 0;
 	static int accumulator = 0;
 	const int dt = 1000 / ticks_per_second;
+
+	if (std::abs(camera_velocity.x) > 1e-6 || std::abs(camera_velocity.y) > 1e-6)
+		move_camera_center(camera_velocity.x / zoom, camera_velocity.y / zoom);
+
 	if (is_playing) {
 		unsigned int ticks = SDL_GetTicks();
 		accumulator += ticks - prev_ticks;
@@ -153,7 +157,7 @@ void Core::randomize_world()
 	set_is_playing(false);
 	std::srand(std::time(nullptr));
 	for (int i = 0; i < initial_world_state.size(); ++i)
-		initial_world_state[i] = (std::rand() % 2 == 0) ? 1 : 0;
+		initial_world_state[i] = (std::rand() % 4 == 0) ? 1 : 0;
 	renderer.set_world_grid(initial_world_state.data());
 }
 
@@ -234,8 +238,6 @@ void Core::quit()
 
 void Core::handle_input(SDL_Event & e)
 {
-	static vec2<float> cam_delta;
-
 	switch (e.type) {
 	case SDL_WINDOWEVENT:
 		switch (e.window.event) {
@@ -253,10 +255,10 @@ void Core::handle_input(SDL_Event & e)
 			case SDLK_e:
 				ticks_per_second = clamp(ticks_per_second + 0.25f, 0.25f, 420.0f);
 				break;
-			case SDLK_w: cam_delta.y =  0.01f / zoom; break;
-			case SDLK_s: cam_delta.y = -0.01f / zoom; break;
-			case SDLK_d: cam_delta.x =  0.01f / zoom; break;
-			case SDLK_a: cam_delta.x = -0.01f / zoom; break;
+			case SDLK_w: camera_velocity.y =  0.01f; break;
+			case SDLK_s: camera_velocity.y = -0.01f; break;
+			case SDLK_d: camera_velocity.x =  0.01f; break;
+			case SDLK_a: camera_velocity.x = -0.01f; break;
 		}
 		break;
 	case SDL_KEYUP:
@@ -267,16 +269,13 @@ void Core::handle_input(SDL_Event & e)
 			case SDLK_c: init_world_state(true); break;
 			case SDLK_g: renderer.set_grid_visibility(is_grid_visible = !is_grid_visible); break;
 
-			case SDLK_w: cam_delta.y = 0; break;
-			case SDLK_s: cam_delta.y = 0; break;
-			case SDLK_d: cam_delta.x = 0; break;
-			case SDLK_a: cam_delta.x = 0; break;
+			case SDLK_w: camera_velocity.y = 0; break;
+			case SDLK_s: camera_velocity.y = 0; break;
+			case SDLK_d: camera_velocity.x = 0; break;
+			case SDLK_a: camera_velocity.x = 0; break;
 		}
 		break;
 	}
-	
-	if (std::abs(cam_delta.x) > 1e-6 || std::abs(cam_delta.y) > 1e-6)
-		move_camera_center(cam_delta.x, cam_delta.y);
 }
 
 void Core::on_resize(int w, int h)
