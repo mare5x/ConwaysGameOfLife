@@ -9,7 +9,7 @@
 
 
 namespace {
-	GLbyte* world_state;  // Represents the "previous" state of the world (in GPU memory).
+	GLint* world_state;  // Represents the "previous" state of the world (in GPU memory).
 	int rows, cols;
 	cudaGraphicsResource* vbo_resource;
 
@@ -22,7 +22,7 @@ namespace {
 
 
 __global__
-void copy_mem(const GLbyte* src, GLbyte* dst, size_t size)
+void copy_mem(const GLint* src, GLint* dst, size_t size)
 {
 	int index = blockDim.x * blockIdx.x + threadIdx.x;
 	int stride = gridDim.x * blockDim.x;
@@ -31,7 +31,7 @@ void copy_mem(const GLbyte* src, GLbyte* dst, size_t size)
 }
 
 __device__
-int count_neighbours(GLbyte* old_state, int row, int col, int rows, int cols)
+int count_neighbours(GLint* old_state, int row, int col, int rows, int cols)
 {
 	int neighbours = 0;
 	for (int i = 0; i < 8; ++i) {
@@ -51,7 +51,7 @@ int count_neighbours(GLbyte* old_state, int row, int col, int rows, int cols)
 }
 
 __global__
-void run_kernel(GLbyte* old_state, GLbyte* world, int rows, int cols)
+void run_kernel(GLint* old_state, GLint* world, int rows, int cols)
 {
 	// 1. Any live cell with fewer than two live neighbors dies, as if by underpopulation.
 	// 2. Any live cell with two or three live neighbors lives on to the next generation.
@@ -77,9 +77,9 @@ void run_kernel(GLbyte* old_state, GLbyte* world, int rows, int cols)
 
 		bool cell_alive = old_state[i] > 0;
 		if (neighbours == 3 || (cell_alive && neighbours == 2))
-			world[i] = 1;
+			world[i] = cell_alive ? world[i] + 1 : 1;
 		else
-			world[i] = -neighbours;
+			world[i] = cell_alive ? -1 : world[i] - 1;
 	}
 }
 
@@ -93,7 +93,7 @@ void ConwaysCUDA::tick()
 
 	checkCudaErrors(cudaGraphicsMapResources(1, &vbo_resource, 0));
 
-	GLbyte* data_ptr;
+	GLint* data_ptr;
 	size_t num_bytes;
 	checkCudaErrors(cudaGraphicsResourceGetMappedPointer((void **)&data_ptr, &num_bytes, vbo_resource));
 
@@ -107,7 +107,7 @@ void ConwaysCUDA::tick()
 	int num_blocks = std::ceil(grid_size / block_size);
 
 	// Copy the previous world state using cudaMemcpy or copy_mem kernel:
-	//cudaMemcpy(world_state, data_ptr, grid_size * sizeof(GLbyte), cudaMemcpyDeviceToDevice);
+	//cudaMemcpy(world_state, data_ptr, grid_size * sizeof(GLint), cudaMemcpyDeviceToDevice);
 	copy_mem<<<num_blocks, block_size>>>(data_ptr, world_state, grid_size);
 
 	run_kernel<<<num_blocks, block_size>>>(world_state, data_ptr, rows, cols);
@@ -119,7 +119,7 @@ bool ConwaysCUDA::init(int rows, int cols, GLuint vbo)
 {
 	::rows = rows;
 	::cols = cols;
-	checkCudaErrors(cudaMallocManaged(&world_state, sizeof(GLbyte) * rows * cols));
+	checkCudaErrors(cudaMallocManaged(&world_state, sizeof(GLint) * rows * cols));
 
 	// Necessary for OpenGL interop.
 	checkCudaErrors(cudaGraphicsGLRegisterBuffer(&vbo_resource, vbo, cudaGraphicsRegisterFlagsNone));

@@ -151,6 +151,8 @@ void ConwaysGameOfLife::init_world_state(bool send_to_gpu)
 	std::fill(initial_world_state.begin(), initial_world_state.end(), 0);
 	if (send_to_gpu)
 		renderer.set_world_grid(initial_world_state.data());
+
+	is_playing = false;
 }
 
 void ConwaysGameOfLife::randomize_world()
@@ -177,7 +179,7 @@ void ConwaysGameOfLife::toggle_tile_state(int x, int y)
 	int row = world_pos.y * ROWS;
 	int col = world_pos.x * COLS;
 	if (col >= 0 && col < COLS && row >= 0 && row < ROWS) {
-		GLbyte& state = initial_world_state[row * COLS + col];
+		GLint& state = initial_world_state[row * COLS + col];
 		state = (state > 0 ? 0 : 1);
 		set_is_playing(false);
 		renderer.set_world_grid(initial_world_state.data());

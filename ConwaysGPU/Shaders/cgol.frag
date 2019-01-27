@@ -61,6 +61,14 @@ void main()
 	if (show_grid && screen_grid(gl_FragCoord.xy, rows))
 		frag = vec4(1, 1, 1, 0.3);
 
+	float age = clamp(tile_state / 1024.0, -1.0, 1.0);
+
+	if (age > 0)
+		frag = vec4(0, 1, 0, 1) * age;
+	else if (age < 0)
+		frag = vec4(1, 0, 0, 1) * age * -1.0;
+
+/*
 	// Tile state:
 	//  1  ; if alive
 	//  0  ; 0 neighbours
@@ -71,4 +79,5 @@ void main()
 		int neighbours = abs(tile_state);
 		frag = vec4(0, 1, 1, 0.5) * mix(0.2, 1.0, neighbours / 8.0f);
 	}
+*/
 }

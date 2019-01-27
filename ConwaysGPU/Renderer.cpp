@@ -8,7 +8,7 @@ Renderer::~Renderer()
 	glDeleteVertexArrays(1, &vao);
 }
 
-void Renderer::init(int rows, int cols, const GLbyte * world_state)
+void Renderer::init(int rows, int cols, const GLint * world_state)
 {
 	this->rows = rows;
 	this->cols = cols;
@@ -42,10 +42,10 @@ void Renderer::init(int rows, int cols, const GLbyte * world_state)
 
 	glGenBuffers(1, &vbo_states);
 	glBindBuffer(GL_ARRAY_BUFFER, vbo_states);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(GLbyte) * rows * cols, world_state, GL_DYNAMIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(GLint) * rows * cols, world_state, GL_DYNAMIC_DRAW);
 
 	glEnableVertexAttribArray(1);
-	glVertexAttribIPointer(1, 1, GL_BYTE, sizeof(GLbyte), (void*)(0));
+	glVertexAttribIPointer(1, 1, GL_INT, sizeof(GLint), (void*)(0));
 	// Notice the I in ...Attrib'I'Pointer
 	// https://www.khronos.org/opengl/wiki/Vertex_Specification
 	// The general type of attribute used in the vertex shader must match the 
@@ -91,10 +91,10 @@ void Renderer::set_camera_center(float x, float y)
 	shader.setVec2("camera_center", x, y);
 }
 
-void Renderer::set_world_grid(const GLbyte * world)
+void Renderer::set_world_grid(const GLint * world)
 {
 	glBindBuffer(GL_ARRAY_BUFFER, vbo_states);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(GLbyte) * rows * cols, world, GL_DYNAMIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(GLint) * rows * cols, world, GL_DYNAMIC_DRAW);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 

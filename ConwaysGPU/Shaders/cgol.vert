@@ -1,6 +1,6 @@
 #version 330 core
 layout (location = 0) in vec2 norm_pos;
-layout (location = 1) in int in_tile_state;  // actually a GLbyte
+layout (location = 1) in int in_tile_state;  // actually a GLint
 
 uniform vec2 screen_size;
 uniform int rows;
