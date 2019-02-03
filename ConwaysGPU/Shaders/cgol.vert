@@ -1,6 +1,7 @@
 #version 330 core
 layout (location = 0) in vec2 norm_pos;
-layout (location = 1) in int in_tile_state;  // actually a GLint
+layout (location = 1) in int in_tile_status;  // actually a GLbyte
+layout (location = 2) in int in_tile_age;     // GLint
 
 uniform vec2 screen_size;
 uniform int rows;
@@ -9,6 +10,7 @@ uniform float zoom;
 uniform vec2 camera_center;  // in [0, 1] coordinates
 
 flat out int tile_state;
+flat out int tile_age;
 
 const vec2 base_camera_center = vec2(0.5, 0.5);
 
@@ -28,7 +30,8 @@ vec2 norm_to_vertex(vec2 pos)
 
 void main()
 {
-	tile_state = in_tile_state;  // Tell the fragment shader about the state of this tile.
+	tile_state = in_tile_status;  // Tell the fragment shader about the state of this tile.
+	tile_age = in_tile_age;
 
 	// Calculate the row and column information from the instance index of the current instanced draw command.
 	int row = gl_InstanceID / cols;

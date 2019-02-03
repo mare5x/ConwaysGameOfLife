@@ -1,5 +1,7 @@
 #version 330 core
 
+#define PI 3.14159265
+
 uniform vec2 screen_size;
 uniform int rows;
 uniform int cols;
@@ -8,6 +10,7 @@ uniform vec2 camera_center;  // in [0, 1] coordinates
 uniform bool show_grid;
 
 flat in int tile_state;
+flat in int tile_age;
 
 out vec4 frag;
 
@@ -61,23 +64,24 @@ void main()
 	if (show_grid && screen_grid(gl_FragCoord.xy, rows))
 		frag = vec4(1, 1, 1, 0.3);
 
-	float age = clamp(tile_state / 1024.0, -1.0, 1.0);
-
-	if (age > 0)
-		frag = vec4(0, 1, 0, 1) * age;
-	else if (age < 0)
-		frag = vec4(1, 0, 0, 1) * age * -1.0;
-
-/*
 	// Tile state:
 	//  1  ; if alive
 	//  0  ; 0 neighbours
 	// -n  ; n is the number of neighbours of the PREVIOUS state
-	if (tile_state > 0)
-		frag = vec4(1, 0, 0, 1);
-	else if (tile_state < 0) {
-		int neighbours = abs(tile_state);
-		frag = vec4(0, 1, 1, 0.5) * mix(0.2, 1.0, neighbours / 8.0f);
+	// Tile age:
+	//  k >  0; k ticks alive
+	//  k <= 0; k ticks dead
+
+	if (tile_age > 0) {
+		float x = tile_age / 128.0;
+		float age = 0.7 + 0.3 * cos(2 * PI * x);
+		frag = vec4(1, 0, 0, 1) * age;
+	} else if (tile_age < 0 && tile_state < 0) {
+		frag = vec4(0.7, 0.2, 0.4, 1) * mix(0.2, 1.0, tile_state / -8.0f);	
+	} else if (tile_age < 0) {
+		float x = tile_age / -128.0;
+		float age = pow(x + 1, -8);
+		if (age > 0.1)
+			frag = vec4(1, 0, 0.5, 0.6) * age;	
 	}
-*/
 }

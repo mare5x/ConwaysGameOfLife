@@ -6,12 +6,13 @@
 
 #include <cmath>
 #include <iostream>
+#include <algorithm>
 
 
 namespace {
-	GLint* world_state;  // Represents the "previous" state of the world (in GPU memory).
+	GLint* prev_cell_age_data;  // (in GPU memory).
 	int rows, cols;
-	cudaGraphicsResource* vbo_resource;
+	cudaGraphicsResource* vbo_resources[ConwaysCUDA::_VBO_COUNT];
 
 	// Device constants.
 	// Trying to initialize these two arrays in the kernel resulted 
@@ -51,7 +52,7 @@ int count_neighbours(GLint* old_state, int row, int col, int rows, int cols)
 }
 
 __global__
-void run_kernel(GLint* old_state, GLint* world, int rows, int cols)
+void run_kernel(GLint* old_cell_ages, GLbyte* new_cell_status, GLint* new_cell_ages, int rows, int cols)
 {
 	// 1. Any live cell with fewer than two live neighbors dies, as if by underpopulation.
 	// 2. Any live cell with two or three live neighbors lives on to the next generation.
@@ -73,13 +74,17 @@ void run_kernel(GLint* old_state, GLint* world, int rows, int cols)
 		int row = i / cols;
 		int col = i % cols;
 
-		int neighbours = count_neighbours(old_state, row, col, rows, cols);
+		int neighbours = count_neighbours(old_cell_ages, row, col, rows, cols);
 
-		bool cell_alive = old_state[i] > 0;
-		if (neighbours == 3 || (cell_alive && neighbours == 2))
-			world[i] = cell_alive ? world[i] + 1 : 1;
-		else
-			world[i] = cell_alive ? -1 : world[i] - 1;
+		bool cell_alive = old_cell_ages[i] > 0;
+		if (neighbours == 3 || (cell_alive && neighbours == 2)) {
+			new_cell_status[i] = 1;
+			new_cell_ages[i] = max(1, new_cell_ages[i] + 1);
+		}
+		else {
+			new_cell_status[i] = -neighbours;
+			new_cell_ages[i] = min(-1, new_cell_ages[i] - 1);
+		}
 	}
 }
 
@@ -91,11 +96,13 @@ void ConwaysCUDA::tick()
 	// 2. update the current state in the VBO.
 	// 3. unmap the VBO.
 
-	checkCudaErrors(cudaGraphicsMapResources(1, &vbo_resource, 0));
+	checkCudaErrors(cudaGraphicsMapResources(_VBO_COUNT, vbo_resources, 0));
 
-	GLint* data_ptr;
+	GLbyte* cell_status_ptr;
+	GLint* cell_age_ptr;
 	size_t num_bytes;
-	checkCudaErrors(cudaGraphicsResourceGetMappedPointer((void **)&data_ptr, &num_bytes, vbo_resource));
+	checkCudaErrors(cudaGraphicsResourceGetMappedPointer((void **)&cell_status_ptr, &num_bytes, vbo_resources[CELL_STATUS]));
+	checkCudaErrors(cudaGraphicsResourceGetMappedPointer((void **)&cell_age_ptr, &num_bytes, vbo_resources[CELL_AGE]));
 
 	// CUDA threads execute in a _grid_ of of threads. Each block in the grid is
 	// of size block_size, and num_blocks is how many blocks there are in the grid.
@@ -107,28 +114,31 @@ void ConwaysCUDA::tick()
 	int num_blocks = std::ceil(grid_size / block_size);
 
 	// Copy the previous world state using cudaMemcpy or copy_mem kernel:
-	//cudaMemcpy(world_state, data_ptr, grid_size * sizeof(GLint), cudaMemcpyDeviceToDevice);
-	copy_mem<<<num_blocks, block_size>>>(data_ptr, world_state, grid_size);
+	//cudaMemcpy(world_state, data_ptr, grid_size * sizeof(GLbyte), cudaMemcpyDeviceToDevice);
+	copy_mem<<<num_blocks, block_size>>>(cell_age_ptr, prev_cell_age_data, grid_size);
 
-	run_kernel<<<num_blocks, block_size>>>(world_state, data_ptr, rows, cols);
+	run_kernel<<<num_blocks, block_size>>>(prev_cell_age_data, cell_status_ptr, cell_age_ptr, rows, cols);
 
-	checkCudaErrors(cudaGraphicsUnmapResources(1, &vbo_resource, 0));
+	checkCudaErrors(cudaGraphicsUnmapResources(_VBO_COUNT, vbo_resources, 0));
 }
 
-bool ConwaysCUDA::init(int rows, int cols, GLuint vbo)
+bool ConwaysCUDA::init(int rows, int cols, GLuint vbos[_VBO_COUNT])
 {
 	::rows = rows;
 	::cols = cols;
-	checkCudaErrors(cudaMallocManaged(&world_state, sizeof(GLint) * rows * cols));
+	checkCudaErrors(cudaMallocManaged(&prev_cell_age_data, sizeof(GLint) * rows * cols));
 
 	// Necessary for OpenGL interop.
-	checkCudaErrors(cudaGraphicsGLRegisterBuffer(&vbo_resource, vbo, cudaGraphicsRegisterFlagsNone));
+	for (int i = 0; i < _VBO_COUNT; ++i)
+		checkCudaErrors(cudaGraphicsGLRegisterBuffer(
+			&vbo_resources[i], vbos[i], cudaGraphicsRegisterFlagsNone));
 
 	return true;
 }
 
 void ConwaysCUDA::exit()
 {
-	checkCudaErrors(cudaGraphicsUnregisterResource(vbo_resource));
-	checkCudaErrors(cudaFree(world_state));
+	for (int i = 0; i < _VBO_COUNT; ++i)
+		checkCudaErrors(cudaGraphicsUnregisterResource(vbo_resources[i]));
+	checkCudaErrors(cudaFree(prev_cell_age_data));
 }

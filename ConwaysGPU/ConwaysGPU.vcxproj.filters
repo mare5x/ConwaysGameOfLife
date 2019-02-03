@@ -4,7 +4,7 @@
     <CudaCompile Include="main.cpp">
       <Filter>Source Files</Filter>
     </CudaCompile>
-    <CudaCompile Include="kernel.cu">
+    <CudaCompile Include="ConwaysCUDA.cu">
       <Filter>Source Files</Filter>
     </CudaCompile>
   </ItemGroup>

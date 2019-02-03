@@ -122,7 +122,7 @@
     </CustomBuildStep>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <CudaCompile Include="kernel.cu" />
+    <CudaCompile Include="ConwaysCUDA.cu" />
     <CudaCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>

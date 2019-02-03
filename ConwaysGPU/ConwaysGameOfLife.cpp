@@ -5,6 +5,16 @@
 #include <cstdlib>
 
 
+//const char* PATTERN = 
+//	"0000000010"
+//	"0000000101"
+//	"0000001011"
+//	"1100011011"
+//	"1100001011"
+//	"0000000101"
+//	"0000000010"
+//;
+
 const int ROWS = 1024; // 2048
 const int COLS = 1024; // 2048
 
@@ -179,7 +189,7 @@ void ConwaysGameOfLife::toggle_tile_state(int x, int y)
 	int row = world_pos.y * ROWS;
 	int col = world_pos.x * COLS;
 	if (col >= 0 && col < COLS && row >= 0 && row < ROWS) {
-		GLint& state = initial_world_state[row * COLS + col];
+		GLbyte& state = initial_world_state[row * COLS + col];
 		state = (state > 0 ? 0 : 1);
 		set_is_playing(false);
 		renderer.set_world_grid(initial_world_state.data());
