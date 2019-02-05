@@ -148,6 +148,9 @@ void ConwaysGameOfLife::init_world_state(bool send_to_gpu)
 {
 	initial_world_state.resize(ROWS * COLS);
 	std::fill(initial_world_state.begin(), initial_world_state.end(), 0);
+
+	pattern_blueprints::shooter_pattern.build(initial_world_state.data(), ROWS, COLS, 500, 1020);
+
 	if (send_to_gpu)
 		renderer.set_world_grid(initial_world_state.data());
 
@@ -174,25 +177,33 @@ void ConwaysGameOfLife::set_is_playing(bool val)
 
 void ConwaysGameOfLife::toggle_tile_state(int x, int y)
 {
-	vec2<float> world_pos = screen_to_world(x, y);
-	int row = world_pos.y * ROWS;
-	int col = world_pos.x * COLS;
+	vec2<int> tile = screen_to_tile(x, y);
+	int row = tile.x;
+	int col = tile.y;
 	if (col >= 0 && col < COLS && row >= 0 && row < ROWS) {
 		WORLD_T& state = initial_world_state[row * COLS + col];
 		state = (state > 0 ? 0 : 1);
 		set_is_playing(false);
 		renderer.set_world_grid(initial_world_state.data());
 	}
-	printf("%d %d (%.2f %.2f)\n", row, col, world_pos.x, world_pos.y);
 }
 
 vec2<float> ConwaysGameOfLife::screen_to_world(int x, int y)
 {
-	y = height - y;  // screen coordinate (0,0) is top left
+	// NOTE: screen coordinate (0,0) is top left, but world (0,0) is bottom left.
+	y = height - y; 
 	float edge = std::min(width, height) * zoom;
 	vec2<float> cam_offset = (base_camera_center - camera_center) * edge;
 	vec2<float> offset = (vec2<float>(width, height) - edge) / 2.0f + cam_offset;
 	return (vec2<float>(x, y) - offset) / edge;
+}
+
+vec2<int> ConwaysGameOfLife::screen_to_tile(int x, int y)
+{
+	vec2<float> world_pos = screen_to_world(x, y);
+	int row = world_pos.y * ROWS;
+	int col = world_pos.x * COLS;
+	return { row, col };
 }
 
 void ConwaysGameOfLife::move_camera_center(float dx, float dy)
@@ -213,6 +224,14 @@ void ConwaysGameOfLife::update_zoom(int sign)
 	zoom_x = clamp(zoom_x + 0.1f * sign, -1.0f, 5.0f);
 	zoom = std::exp(zoom_x);
 	renderer.set_zoom(zoom);
+}
+
+void ConwaysGameOfLife::place_pattern(int x, int y)
+{
+	const Blueprint& blueprint = *pattern_blueprints::all_patterns[current_blueprint];
+	vec2<int> tile = screen_to_tile(x, y);
+	set_blueprint(blueprint, tile.x, tile.y);
+	renderer.set_world_grid(initial_world_state.data());
 }
 
 void ConwaysGameOfLife::print_stats()
@@ -248,7 +267,12 @@ void ConwaysGameOfLife::handle_input(SDL_Event & e)
 		}
 		break;
 	case SDL_MOUSEWHEEL: update_zoom(e.wheel.y); break;
-	case SDL_MOUSEBUTTONUP: toggle_tile_state(e.button.x, e.button.y); break;
+	case SDL_MOUSEBUTTONUP: 
+		switch (e.button.button) {
+		case SDL_BUTTON_LEFT: toggle_tile_state(e.button.x, e.button.y); break;
+		case SDL_BUTTON_RIGHT: place_pattern(e.button.x, e.button.y); break;
+		}
+		break;
 	case SDL_KEYDOWN:
 		switch (e.key.keysym.sym) {
 			case SDLK_q:
@@ -275,6 +299,11 @@ void ConwaysGameOfLife::handle_input(SDL_Event & e)
 			case SDLK_s: camera_velocity.y = 0; break;
 			case SDLK_d: camera_velocity.x = 0; break;
 			case SDLK_a: camera_velocity.x = 0; break;
+
+			case SDLK_1: 
+				current_blueprint = 
+					(current_blueprint + 1) % pattern_blueprints::all_patterns.size(); 
+				break;
 		}
 		break;
 	}

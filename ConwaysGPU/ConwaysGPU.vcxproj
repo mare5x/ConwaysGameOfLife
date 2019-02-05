@@ -128,9 +128,11 @@
   <ItemGroup>
     <ClCompile Include="ConwaysGameOfLife.cpp" />
     <ClCompile Include="glad.c" />
+    <ClCompile Include="pattern_blueprints.cpp" />
     <ClCompile Include="Renderer.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="pattern_blueprints.h" />
     <ClInclude Include="ConwaysCUDA.h" />
     <ClInclude Include="ConwaysGameOfLife.h" />
     <ClInclude Include="helper_cuda.h" />

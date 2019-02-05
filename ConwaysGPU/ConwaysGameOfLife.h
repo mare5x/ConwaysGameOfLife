@@ -4,6 +4,7 @@
 #include "Renderer.h"
 #include <vector>
 #include "vec2.h"
+#include "pattern_blueprints.h"
 
 
 class ConwaysGameOfLife {
@@ -36,9 +37,18 @@ private:
 
 	// Convert (x, y) in screen coordinates to world coordinates [0, 1].
 	vec2<float> screen_to_world(int x, int y);
+	// x == rows, y == cols
+	vec2<int> screen_to_tile(int x, int y);
 
 	void move_camera_center(float dx, float dy);
 	void update_zoom(int sign);
+
+	// Place the currently set pattern so that the top left corner is at 
+	// (x,y) in screen coordinates.
+	void place_pattern(int x, int y);
+	void set_blueprint(const Blueprint& blueprint, int row, int col) {
+		blueprint.build(initial_world_state.data(), ROWS, COLS, row, col);
+	}
 
 	void print_stats();
 
@@ -62,6 +72,8 @@ private:
 	vec2<float> camera_center;
 	float zoom = 1.0f;
 	float ticks_per_second = 10.0f;
+
+	int current_blueprint = 0;
 
 	// We can't just use an std::array or something similar because 
 	// it allocates memory on the stack. That causes crashes when
