@@ -105,14 +105,12 @@ void Renderer::set_world_grid(const GLbyte * world)
 	// When updating an existing buffer use glBufferSubData instead of glBufferData!
 	glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(GLbyte) * rows * cols, world);
 
-	// --- Temporary work around ...
 	// CUDA code works mostly with the CELL_AGE vbo, so we have to populate it ...
-	GLint* world_copy = new GLint[rows * cols];
-	std::copy(world, world + rows * cols, world_copy);
 	glBindBuffer(GL_ARRAY_BUFFER, vbo_states[ConwaysCUDA::CELL_AGE]);
-	glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(GLint) * rows * cols, world_copy);
-	delete[] world_copy;
-	// ---
+	GLint* cell_ages = (GLint*)glMapBuffer(GL_ARRAY_BUFFER, GL_WRITE_ONLY);
+	for (int i = 0; i < rows * cols; ++i)
+		cell_ages[i] = world[i];
+	glUnmapBuffer(GL_ARRAY_BUFFER);
 
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
