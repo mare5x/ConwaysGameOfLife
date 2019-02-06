@@ -1,7 +1,7 @@
 #version 330 core
 layout (location = 0) in vec2 norm_pos;
-layout (location = 1) in int in_tile_status;  // actually a GLbyte
-layout (location = 2) in int in_tile_age;     // GLint
+layout (location = 1) in int in_tile_status;  // actually a WORLD_T
+layout (location = 2) in int in_tile_age;     // CELL_AGE_T
 
 uniform vec2 screen_size;
 uniform int rows;

@@ -11,6 +11,9 @@ public:
 	ConwaysGameOfLife();
 	~ConwaysGameOfLife() { quit(); }
 
+	static const int ROWS = 1024; // 2048
+	static const int COLS = 1024; // 2048
+
 	void run();
 
 	void input();
@@ -63,5 +66,5 @@ private:
 	// We can't just use an std::array or something similar because 
 	// it allocates memory on the stack. That causes crashes when
 	// the grid size exceeds a certain amount (stack size limit). 
-	std::vector<GLbyte> initial_world_state;
+	std::vector<ConwaysCUDA::WORLD_T> initial_world_state;
 };

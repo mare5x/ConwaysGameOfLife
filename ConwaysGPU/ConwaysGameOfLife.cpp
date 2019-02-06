@@ -4,19 +4,7 @@
 #include <ctime>
 #include <cstdlib>
 
-
-//const char* PATTERN = 
-//	"0000000010"
-//	"0000000101"
-//	"0000001011"
-//	"1100011011"
-//	"1100001011"
-//	"0000000101"
-//	"0000000010"
-//;
-
-const int ROWS = 1024; // 2048
-const int COLS = 1024; // 2048
+using ConwaysCUDA::WORLD_T;
 
 const vec2<float> base_camera_center(0.5f, 0.5f);
 	
@@ -147,10 +135,11 @@ bool ConwaysGameOfLife::init_gl()
 
 	on_resize(width, height);
 
-	renderer.init(ROWS, COLS, initial_world_state.data());
+	renderer.init(ROWS, COLS);
 	renderer.on_resize(width, height);
 	renderer.set_zoom(zoom);
 	renderer.set_camera_center(camera_center.x, camera_center.y);
+	renderer.set_world_grid(initial_world_state.data());
 
 	return true;
 }
@@ -189,7 +178,7 @@ void ConwaysGameOfLife::toggle_tile_state(int x, int y)
 	int row = world_pos.y * ROWS;
 	int col = world_pos.x * COLS;
 	if (col >= 0 && col < COLS && row >= 0 && row < ROWS) {
-		GLbyte& state = initial_world_state[row * COLS + col];
+		WORLD_T& state = initial_world_state[row * COLS + col];
 		state = (state > 0 ? 0 : 1);
 		set_is_playing(false);
 		renderer.set_world_grid(initial_world_state.data());

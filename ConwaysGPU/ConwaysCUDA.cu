@@ -8,9 +8,11 @@
 #include <iostream>
 #include <algorithm>
 
+using ConwaysCUDA::CELL_AGE_T;
+using ConwaysCUDA::CELL_STATUS_T;
 
 namespace {
-	GLint* prev_cell_age_data;  // (in GPU memory).
+	CELL_AGE_T* prev_cell_age_data;  // (in GPU memory).
 	int rows, cols;
 	cudaGraphicsResource* vbo_resources[ConwaysCUDA::_VBO_COUNT];
 
@@ -23,7 +25,7 @@ namespace {
 
 
 __global__
-void copy_mem(const GLint* src, GLint* dst, size_t size)
+void copy_mem(const CELL_AGE_T* src, CELL_AGE_T* dst, size_t size)
 {
 	int index = blockDim.x * blockIdx.x + threadIdx.x;
 	int stride = gridDim.x * blockDim.x;
@@ -32,7 +34,7 @@ void copy_mem(const GLint* src, GLint* dst, size_t size)
 }
 
 __device__
-int count_neighbours(GLint* old_state, int row, int col, int rows, int cols)
+int count_neighbours(CELL_AGE_T* old_state, int row, int col, int rows, int cols)
 {
 	int neighbours = 0;
 	for (int i = 0; i < 8; ++i) {
@@ -52,7 +54,7 @@ int count_neighbours(GLint* old_state, int row, int col, int rows, int cols)
 }
 
 __global__
-void run_kernel(GLint* old_cell_ages, GLbyte* new_cell_status, GLint* new_cell_ages, int rows, int cols)
+void run_kernel(CELL_AGE_T* old_cell_ages, CELL_STATUS_T* new_cell_status, CELL_AGE_T* new_cell_ages, int rows, int cols)
 {
 	// 1. Any live cell with fewer than two live neighbors dies, as if by underpopulation.
 	// 2. Any live cell with two or three live neighbors lives on to the next generation.
@@ -98,8 +100,8 @@ void ConwaysCUDA::tick()
 
 	checkCudaErrors(cudaGraphicsMapResources(_VBO_COUNT, vbo_resources, 0));
 
-	GLbyte* cell_status_ptr;
-	GLint* cell_age_ptr;
+	CELL_STATUS_T* cell_status_ptr;
+	CELL_AGE_T* cell_age_ptr;
 	size_t num_bytes;
 	checkCudaErrors(cudaGraphicsResourceGetMappedPointer((void **)&cell_status_ptr, &num_bytes, vbo_resources[CELL_STATUS]));
 	checkCudaErrors(cudaGraphicsResourceGetMappedPointer((void **)&cell_age_ptr, &num_bytes, vbo_resources[CELL_AGE]));
@@ -126,7 +128,7 @@ bool ConwaysCUDA::init(int rows, int cols, GLuint vbos[_VBO_COUNT])
 {
 	::rows = rows;
 	::cols = cols;
-	checkCudaErrors(cudaMallocManaged(&prev_cell_age_data, sizeof(GLint) * rows * cols));
+	checkCudaErrors(cudaMallocManaged(&prev_cell_age_data, sizeof(CELL_AGE_T) * rows * cols));
 
 	// Necessary for OpenGL interop.
 	for (int i = 0; i < _VBO_COUNT; ++i)

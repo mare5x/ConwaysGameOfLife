@@ -10,6 +10,11 @@ namespace ConwaysCUDA {
 		CELL_STATUS, CELL_AGE, _VBO_COUNT
 	};
 
+	// Type define the OpenGL types we'll be using to allow easier modification.
+	typedef GLbyte CELL_STATUS_T;
+	typedef GLint CELL_AGE_T;
+	typedef CELL_STATUS_T WORLD_T;  // Make the intent clearer ...
+
 	bool init(int rows, int cols, GLuint vbos[_VBO_COUNT]);
 
 	void exit();
