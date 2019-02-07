@@ -31,6 +31,7 @@ private:
 
 	void init_world_state(bool send_to_gpu = false);
 	void randomize_world();
+	void world_to_renderer();
 
 	void set_is_playing(bool val);
 	void toggle_tile_state(int x, int y);

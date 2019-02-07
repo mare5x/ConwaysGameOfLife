@@ -54,7 +54,7 @@ int count_neighbours(CELL_AGE_T* old_state, int row, int col, int rows, int cols
 }
 
 __global__
-void run_kernel(CELL_AGE_T* old_cell_ages, CELL_STATUS_T* new_cell_status, CELL_AGE_T* new_cell_ages, int rows, int cols)
+void tick_kernel(CELL_AGE_T* old_cell_ages, CELL_STATUS_T* new_cell_status, CELL_AGE_T* new_cell_ages, int rows, int cols)
 {
 	// 1. Any live cell with fewer than two live neighbors dies, as if by underpopulation.
 	// 2. Any live cell with two or three live neighbors lives on to the next generation.
@@ -119,7 +119,31 @@ void ConwaysCUDA::tick()
 	//cudaMemcpy(world_state, data_ptr, grid_size * sizeof(GLbyte), cudaMemcpyDeviceToDevice);
 	copy_mem<<<num_blocks, block_size>>>(cell_age_ptr, prev_cell_age_data, grid_size);
 
-	run_kernel<<<num_blocks, block_size>>>(prev_cell_age_data, cell_status_ptr, cell_age_ptr, rows, cols);
+	tick_kernel<<<num_blocks, block_size>>>(prev_cell_age_data, cell_status_ptr, cell_age_ptr, rows, cols);
+
+	checkCudaErrors(cudaGraphicsUnmapResources(_VBO_COUNT, vbo_resources, 0));
+}
+
+__global__
+void toggle_cell_kernel(CELL_AGE_T* cell_age, CELL_STATUS_T* cell_status, int idx)
+{
+	CELL_STATUS_T status = cell_status[idx];
+	cell_age[idx] = (status > 0 ? 0 : 1);
+	cell_status[idx] = cell_age[idx];
+}
+
+void ConwaysCUDA::toggle_cell(int row, int col)
+{
+	checkCudaErrors(cudaGraphicsMapResources(_VBO_COUNT, vbo_resources, 0));
+
+	CELL_STATUS_T* cell_status_ptr;
+	CELL_AGE_T* cell_age_ptr;
+	size_t num_bytes;
+	checkCudaErrors(cudaGraphicsResourceGetMappedPointer((void **)&cell_status_ptr, &num_bytes, vbo_resources[CELL_STATUS]));
+	checkCudaErrors(cudaGraphicsResourceGetMappedPointer((void **)&cell_age_ptr, &num_bytes, vbo_resources[CELL_AGE]));
+
+	// The alternative to 
+	toggle_cell_kernel<<<1, 1>>>(cell_age_ptr, cell_status_ptr, row * cols + col);
 
 	checkCudaErrors(cudaGraphicsUnmapResources(_VBO_COUNT, vbo_resources, 0));
 }

@@ -124,3 +124,19 @@ void Renderer::set_grid_visibility(bool visible)
 	shader.use();
 	shader.setBool("show_grid", visible);
 }
+
+void Renderer::toggle_cell(int row, int col)
+{
+	glBindBuffer(GL_ARRAY_BUFFER, vbo_states[ConwaysCUDA::CELL_AGE]);
+	CELL_AGE_T* cell_ages = (CELL_AGE_T*)glMapBuffer(GL_ARRAY_BUFFER, GL_READ_WRITE);
+	glBindBuffer(GL_ARRAY_BUFFER, vbo_states[ConwaysCUDA::CELL_STATUS]);
+	CELL_STATUS_T* cell_status = (CELL_STATUS_T*)glMapBuffer(GL_ARRAY_BUFFER, GL_READ_WRITE);
+
+	CELL_STATUS_T val = cell_status[row * cols + col];
+	cell_status[row * cols + col] = (val > 0 ? 0 : 1);
+	cell_ages[row * cols + col] = (val > 0 ? 0 : 1);
+
+	glUnmapBuffer(GL_ARRAY_BUFFER);
+	glBindBuffer(GL_ARRAY_BUFFER, vbo_states[ConwaysCUDA::CELL_AGE]);
+	glUnmapBuffer(GL_ARRAY_BUFFER);
+}

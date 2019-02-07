@@ -20,4 +20,10 @@ namespace ConwaysCUDA {
 	void exit();
 
 	void tick();
+
+	//
+	//void build_pattern(const Pattern& blueprint);
+
+	// Toggle the state of the given cell in "real-time".
+	void toggle_cell(int row, int col);
 }

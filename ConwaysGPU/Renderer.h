@@ -22,6 +22,10 @@ public:
 
 	void set_world_grid(const ConwaysCUDA::CELL_STATUS_T* world);
 	void set_grid_visibility(bool visible);
+
+	// An alternative to the cuda approach (ConwaysCUDA::toggle_cell()) ...
+	// For historical purposes ...
+	void toggle_cell(int row, int col);
 private:
 	GLuint vao, vbo_quad;
 	GLuint vbo_states[ConwaysCUDA::_VBO_COUNT];

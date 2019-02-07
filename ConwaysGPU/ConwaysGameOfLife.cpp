@@ -149,20 +149,23 @@ void ConwaysGameOfLife::init_world_state(bool send_to_gpu)
 	initial_world_state.resize(ROWS * COLS);
 	std::fill(initial_world_state.begin(), initial_world_state.end(), 0);
 
-	pattern_blueprints::shooter_pattern.build(initial_world_state.data(), ROWS, COLS, 500, 1020);
-
 	if (send_to_gpu)
-		renderer.set_world_grid(initial_world_state.data());
+		world_to_renderer();
 
 	is_playing = false;
 }
 
 void ConwaysGameOfLife::randomize_world()
 {
-	set_is_playing(false);
 	std::srand(std::time(nullptr));
 	for (int i = 0; i < initial_world_state.size(); ++i)
 		initial_world_state[i] = (std::rand() % 4 == 0) ? 1 : 0;
+	world_to_renderer();
+}
+
+void ConwaysGameOfLife::world_to_renderer()
+{
+	set_is_playing(false);
 	renderer.set_world_grid(initial_world_state.data());
 }
 
@@ -181,10 +184,14 @@ void ConwaysGameOfLife::toggle_tile_state(int x, int y)
 	int row = tile.x;
 	int col = tile.y;
 	if (col >= 0 && col < COLS && row >= 0 && row < ROWS) {
-		WORLD_T& state = initial_world_state[row * COLS + col];
-		state = (state > 0 ? 0 : 1);
-		set_is_playing(false);
-		renderer.set_world_grid(initial_world_state.data());
+		if (is_playing)
+			ConwaysCUDA::toggle_cell(row, col);
+			//renderer.toggle_cell(row, col);
+		else {
+			WORLD_T& state = initial_world_state[row * COLS + col];
+			state = (state > 0 ? 0 : 1);
+			world_to_renderer();
+		}
 	}
 }
 
@@ -231,7 +238,7 @@ void ConwaysGameOfLife::place_pattern(int x, int y)
 	const Blueprint& blueprint = *pattern_blueprints::all_patterns[current_blueprint];
 	vec2<int> tile = screen_to_tile(x, y);
 	set_blueprint(blueprint, tile.x, tile.y);
-	renderer.set_world_grid(initial_world_state.data());
+	world_to_renderer();
 }
 
 void ConwaysGameOfLife::print_stats()
@@ -293,6 +300,7 @@ void ConwaysGameOfLife::handle_input(SDL_Event & e)
 			case SDLK_p: print_stats(); break;
 			case SDLK_r: randomize_world(); break;
 			case SDLK_c: init_world_state(true); break;
+			case SDLK_x: world_to_renderer(); break;
 			case SDLK_g: renderer.set_grid_visibility(is_grid_visible = !is_grid_visible); break;
 
 			case SDLK_w: camera_velocity.y = 0; break;
