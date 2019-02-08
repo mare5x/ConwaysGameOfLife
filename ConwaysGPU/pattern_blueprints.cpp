@@ -62,13 +62,11 @@ void Pattern::build(WORLD_T * world, int w_rows, int w_cols, int row, int col) c
 	for (int i = 0; i < rows; ++i) {
 		for (int j = 0; j < cols; ++j) {
 			char val = pattern[i * cols + j] - '0';
-			if (val != 0) {
-				// (0,0) is at the bottom left
-				int prow = (w_rows + row - i) % w_rows;
-				int pcol = (w_cols + col + j) % w_cols;
-				int idx = prow * w_cols + pcol;
-				world[idx] = val;
-			}
+			// (0,0) is at the bottom left
+			int prow = (w_rows + row - i) % w_rows;
+			int pcol = (w_cols + col + j) % w_cols;
+			int idx = prow * w_cols + pcol;
+			world[idx] = val;
 		}
 	}
 }

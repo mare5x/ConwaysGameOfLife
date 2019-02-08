@@ -237,8 +237,12 @@ void ConwaysGameOfLife::place_pattern(int x, int y)
 {
 	const Blueprint& blueprint = *pattern_blueprints::all_patterns[current_blueprint];
 	vec2<int> tile = screen_to_tile(x, y);
-	set_blueprint(blueprint, tile.x, tile.y);
-	world_to_renderer();
+	if (is_playing) {
+		ConwaysCUDA::set_pattern(blueprint, tile.x, tile.y);
+	} else {
+		set_blueprint(blueprint, tile.x, tile.y);
+		world_to_renderer();
+	}
 }
 
 void ConwaysGameOfLife::print_stats()

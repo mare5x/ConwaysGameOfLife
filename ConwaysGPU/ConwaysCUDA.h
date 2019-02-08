@@ -1,6 +1,11 @@
 #pragma once
 #include "glad/glad.h"
 
+// Forward declarations.
+struct Blueprint;
+struct Pattern;
+struct MultiPattern;
+
 namespace ConwaysCUDA {
 
 	// We need two VBOs:
@@ -21,8 +26,9 @@ namespace ConwaysCUDA {
 
 	void tick();
 
-	//
-	//void build_pattern(const Pattern& blueprint);
+	// Build the given blueprint pattern in "real-time", where the
+	// top left corner of the pattern is at [row, col].
+	void set_pattern(const Blueprint& blueprint, int row, int col);
 
 	// Toggle the state of the given cell in "real-time".
 	void toggle_cell(int row, int col);

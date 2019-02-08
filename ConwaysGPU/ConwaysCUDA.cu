@@ -1,4 +1,5 @@
 #include "ConwaysCUDA.h"
+#include "pattern_blueprints.h"
 
 #include <cuda_runtime.h>
 #include <cuda_gl_interop.h>
@@ -12,9 +13,45 @@ using ConwaysCUDA::CELL_AGE_T;
 using ConwaysCUDA::CELL_STATUS_T;
 
 namespace {
+
+	// A utility class for sending Patterns to the GPU.
+	class PatternWrapper {
+	public:
+		~PatternWrapper()
+		{
+			checkCudaErrors(cudaFree(dev_pattern));
+			checkCudaErrors(cudaFree(dev_pattern_str));
+		}
+
+		void init(int max_pattern_size)
+		{
+			checkCudaErrors(cudaMallocManaged(&dev_pattern, sizeof(Pattern)));
+			checkCudaErrors(cudaMallocManaged(&dev_pattern_str, sizeof(char) * max_pattern_size));
+		}
+		
+		void to_gpu(const Pattern& pattern)
+		{
+			// Remove this line to get an exception :)
+			cudaDeviceSynchronize();
+			
+			strcpy(dev_pattern_str, pattern.pattern);
+
+			*dev_pattern = pattern;
+			dev_pattern->pattern = dev_pattern_str;
+		}
+
+		const Pattern* get_pattern_ptr() const { return dev_pattern; }
+	private:
+		Pattern* dev_pattern;
+		char* dev_pattern_str;
+	};
+
 	CELL_AGE_T* prev_cell_age_data;  // (in GPU memory).
 	int rows, cols;
 	cudaGraphicsResource* vbo_resources[ConwaysCUDA::_VBO_COUNT];
+
+	const size_t MAX_PATTERN_SIZE = 1<<10;  // scratch pad memory for PatternWrapper
+	PatternWrapper pattern_wrapper;
 
 	// Device constants.
 	// Trying to initialize these two arrays in the kernel resulted 
@@ -132,6 +169,78 @@ void toggle_cell_kernel(CELL_AGE_T* cell_age, CELL_STATUS_T* cell_status, int id
 	cell_status[idx] = cell_age[idx];
 }
 
+__global__
+void build_pattern_kernel(CELL_AGE_T* cell_age, CELL_STATUS_T* cell_status, const Pattern* pattern, int rows, int cols, int row, int col)
+{
+	// Thread index of cell in pattern.
+	int thread_idx = blockDim.x * blockIdx.x + threadIdx.x;
+	int stride = blockDim.x * gridDim.x;
+
+	int size = pattern->cols * pattern->rows;
+
+	for (int cell_idx = thread_idx; cell_idx < size; cell_idx += stride) {
+		int pattern_row = cell_idx / pattern->cols;
+		int pattern_col = cell_idx % pattern->cols;
+
+		char val = pattern->pattern[cell_idx] - '0';
+
+		// (0,0) is at the bottom left
+		int world_row = (rows + row - pattern_row) % rows;
+		int world_col = (cols + col + pattern_col) % cols;
+		int idx = world_row * cols + world_col;
+		cell_age[idx] = val;
+		cell_status[idx] = val;
+	}
+}
+
+void set_pattern(const Pattern& pattern, int row, int col)
+{
+	using namespace ConwaysCUDA;
+
+	checkCudaErrors(cudaGraphicsMapResources(_VBO_COUNT, vbo_resources, 0));
+
+	CELL_STATUS_T* cell_status_ptr;
+	CELL_AGE_T* cell_age_ptr;
+	size_t num_bytes;
+	checkCudaErrors(cudaGraphicsResourceGetMappedPointer((void **)&cell_status_ptr, &num_bytes, vbo_resources[CELL_STATUS]));
+	checkCudaErrors(cudaGraphicsResourceGetMappedPointer((void **)&cell_age_ptr, &num_bytes, vbo_resources[CELL_AGE]));
+
+	// We have to send the Pattern to the GPU.
+	pattern_wrapper.to_gpu(pattern);
+
+	// Make a thread for each cell in the pattern.
+	const size_t grid_size = pattern.width() * pattern.height();
+	const size_t block_size = 64;
+	int num_blocks = std::ceil(grid_size / (double)block_size);
+	build_pattern_kernel<<<num_blocks, block_size>>>(cell_age_ptr, cell_status_ptr, pattern_wrapper.get_pattern_ptr(), rows, cols, row, col);
+
+	checkCudaErrors(cudaGraphicsUnmapResources(_VBO_COUNT, vbo_resources, 0));
+}
+
+void set_pattern(const MultiPattern& pattern, int row, int col)
+{
+	const auto& blueprints = pattern.blueprints;
+	const auto& row_offsets = pattern.row_offsets;
+	const auto& col_offsets = pattern.col_offsets;
+	for (int i = 0; i < blueprints.size(); ++i) {
+		const Blueprint& blueprint = *blueprints[i];
+		ConwaysCUDA::set_pattern(blueprint, row + row_offsets[i], col + col_offsets[i]);
+	}
+}
+
+void ConwaysCUDA::set_pattern(const Blueprint & blueprint, int row, int col)
+{
+	// TODO: a better way to do this? 
+	switch (blueprint.type()) {
+	case Blueprint::BlueprintType::Pattern: 
+		set_pattern(static_cast<const Pattern&>(blueprint), row, col);
+		break;
+	case Blueprint::BlueprintType::MultiPattern:
+		set_pattern(static_cast<const MultiPattern&>(blueprint), row, col);
+		break;
+	}
+}
+
 void ConwaysCUDA::toggle_cell(int row, int col)
 {
 	checkCudaErrors(cudaGraphicsMapResources(_VBO_COUNT, vbo_resources, 0));
@@ -142,7 +251,7 @@ void ConwaysCUDA::toggle_cell(int row, int col)
 	checkCudaErrors(cudaGraphicsResourceGetMappedPointer((void **)&cell_status_ptr, &num_bytes, vbo_resources[CELL_STATUS]));
 	checkCudaErrors(cudaGraphicsResourceGetMappedPointer((void **)&cell_age_ptr, &num_bytes, vbo_resources[CELL_AGE]));
 
-	// The alternative to 
+	// The alternative to using glMapBuffer, etc...
 	toggle_cell_kernel<<<1, 1>>>(cell_age_ptr, cell_status_ptr, row * cols + col);
 
 	checkCudaErrors(cudaGraphicsUnmapResources(_VBO_COUNT, vbo_resources, 0));
@@ -153,6 +262,8 @@ bool ConwaysCUDA::init(int rows, int cols, GLuint vbos[_VBO_COUNT])
 	::rows = rows;
 	::cols = cols;
 	checkCudaErrors(cudaMallocManaged(&prev_cell_age_data, sizeof(CELL_AGE_T) * rows * cols));
+
+	pattern_wrapper.init(MAX_PATTERN_SIZE);
 
 	// Necessary for OpenGL interop.
 	for (int i = 0; i < _VBO_COUNT; ++i)
