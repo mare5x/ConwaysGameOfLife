@@ -35,6 +35,7 @@ private:
 
 	void set_is_playing(bool val);
 	void toggle_tile_state(int x, int y);
+	bool tile_in_bounds(int row, int col) const { return row >= 0 && row < ROWS && col >= 0 && col < COLS; }
 
 	// Convert (x, y) in screen coordinates to world coordinates [0, 1].
 	vec2<float> screen_to_world(int x, int y);
@@ -50,6 +51,8 @@ private:
 	void set_blueprint(const Blueprint& blueprint, int row, int col) {
 		blueprint.build(initial_world_state.data(), ROWS, COLS, row, col);
 	}
+	void toggle_pattern_hovering();
+	void handle_pattern_hover(int x, int y);
 
 	void print_stats();
 
@@ -67,6 +70,7 @@ private:
 	// --- Game specifics --- //
 	bool is_playing = false;
 	bool is_grid_visible = true;
+	bool is_pattern_hovering = false;
 	unsigned int generation = 0;
 
 	vec2<float> camera_velocity;
@@ -75,6 +79,8 @@ private:
 	float ticks_per_second = 10.0f;
 
 	int current_blueprint = 0;
+	int pattern_blueprint = 0;
+	vec2<int> pattern_tile;
 
 	// We can't just use an std::array or something similar because 
 	// it allocates memory on the stack. That causes crashes when

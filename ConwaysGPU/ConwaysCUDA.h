@@ -30,6 +30,9 @@ namespace ConwaysCUDA {
 	// top left corner of the pattern is at [row, col].
 	void set_pattern(const Blueprint& blueprint, int row, int col);
 
+	// Set or unset the given blueprint pattern in hover mode.
+	void set_hover_pattern(const Blueprint& blueprint, int row, int col, bool hover);
+
 	// Toggle the state of the given cell in "real-time".
 	void toggle_cell(int row, int col);
 }

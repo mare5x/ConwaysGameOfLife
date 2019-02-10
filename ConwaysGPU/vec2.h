@@ -70,3 +70,8 @@ template<class T>
 inline vec2<T> operator-(const vec2<T>& lhs, const T& rhs) {
 	return lhs + rhs * (-1.0f);
 }
+
+template<class T>
+inline bool operator==(const vec2<T>& lhs, const vec2<T>& rhs) {
+	return lhs.x == rhs.x && lhs.y == rhs.y;
+}

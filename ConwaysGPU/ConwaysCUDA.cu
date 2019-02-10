@@ -14,6 +14,10 @@ using ConwaysCUDA::CELL_STATUS_T;
 
 namespace {
 
+	enum PatternMode: uint8_t {
+		NORMAL, HOVER, UNHOVER	
+	};
+
 	// A utility class for sending Patterns to the GPU.
 	class PatternWrapper {
 	public:
@@ -25,19 +29,18 @@ namespace {
 
 		void init(int max_pattern_size)
 		{
-			checkCudaErrors(cudaMallocManaged(&d_pattern, sizeof(Pattern)));
-			checkCudaErrors(cudaMallocManaged(&d_pattern_str, sizeof(char) * max_pattern_size));
+			checkCudaErrors(cudaMalloc(&d_pattern, sizeof(Pattern)));
+			checkCudaErrors(cudaMalloc(&d_pattern_str, sizeof(char) * max_pattern_size));
 		}
 		
 		void to_gpu(const Pattern& pattern)
 		{
-			// Remove this line to get an exception :)
-			checkCudaErrors(cudaDeviceSynchronize());
-			
-			strcpy(d_pattern_str, pattern.pattern);
+			size_t pattern_bytes = pattern.rows * pattern.cols * sizeof(char);
+			cudaMemcpy(d_pattern_str, pattern.pattern, pattern_bytes, cudaMemcpyHostToDevice);
 
-			*d_pattern = pattern;
-			d_pattern->pattern = d_pattern_str;
+			Pattern pattern_cpy = pattern;
+			pattern_cpy.pattern = d_pattern_str;
+			cudaMemcpy(d_pattern, &pattern_cpy, sizeof(Pattern), cudaMemcpyHostToDevice);
 		}
 
 		const Pattern* get_pattern_ptr() const { return d_pattern; }
@@ -89,6 +92,46 @@ namespace {
 	__constant__ int DY[8] = { 0, 1, -1, 1, -1, 0, 1, -1 };
 }
 
+
+// Forward declaration.
+void set_pattern(const Blueprint & blueprint, int row, int col, PatternMode type);
+
+
+__device__
+inline bool in_range(int n, int lo, int hi)
+{
+	return n >= lo && n <= hi;
+}
+
+// The following two functions define a bijective mapping 
+// between normal and hovered tile state.
+__device__
+CELL_STATUS_T cell_to_hovered(CELL_STATUS_T n, bool pattern_bit)
+{
+	if (!in_range(n, -8, 1)) return n;
+	if (pattern_bit) return n + 30;			// [-8, 1] -> [22, 31]
+	return n + 10;							// [-8, 1] -> [2, 11]
+}
+
+__device__
+CELL_STATUS_T hovered_to_cell(CELL_STATUS_T n)
+{
+	if (in_range(n, 22, 31)) return n - 30;
+	if (in_range(n, 2, 11)) return n - 10;
+	return n;
+}
+
+__device__
+inline bool is_cell_hovered(CELL_STATUS_T n)
+{
+	return !in_range(n, -8, 1);
+}
+
+__device__
+inline bool is_cell_hovered_bit(CELL_STATUS_T n)
+{
+	return n >= 22;
+}
 
 __global__
 void copy_mem(const CELL_AGE_T* src, CELL_AGE_T* dst, size_t size)
@@ -157,11 +200,23 @@ void tick_kernel(CELL_AGE_T* old_cell_ages, CELL_STATUS_T* new_cell_status, CELL
 
 		bool cell_alive = old_cell_ages[i] > 0;
 		if (neighbours == 3 || (cell_alive && neighbours == 2)) {
-			new_cell_status[i] = 1;
+			// If a pattern is being hovered at this location,
+			// we have to keep it hovered and figure out if the pattern bit was set.
+			int cell_status = new_cell_status[i];
+			if (is_cell_hovered(cell_status)) {
+				new_cell_status[i] = cell_to_hovered(1, is_cell_hovered_bit(cell_status));
+			} else {
+				new_cell_status[i] = 1;
+			}
 			new_cell_ages[i] = max(1, new_cell_ages[i] + 1);
 		}
 		else {
-			new_cell_status[i] = -neighbours;
+			int cell_status = new_cell_status[i];
+			if (is_cell_hovered(cell_status)) {
+				new_cell_status[i] = cell_to_hovered(-neighbours, is_cell_hovered_bit(cell_status));
+			} else {
+				new_cell_status[i] = -neighbours;
+			}
 			new_cell_ages[i] = min(-1, new_cell_ages[i] - 1);
 		}
 	}
@@ -205,28 +260,46 @@ void toggle_cell_kernel(CELL_AGE_T* cell_age, CELL_STATUS_T* cell_status, int id
 	cell_status[idx] = cell_age[idx];
 }
 
+// There are 3 options for pattern building:
+//   1. normal pattern
+//   2. hover
+//   3. remove hover
 __global__
-void build_pattern_kernel(CELL_AGE_T* cell_age, CELL_STATUS_T* cell_status, const Pattern* pattern, int row, int col)
+void build_pattern_kernel(CELL_AGE_T* cell_age, CELL_STATUS_T* cell_status, 
+						  const Pattern* pattern, int row, int col, PatternMode type)
 {
 	// Thread index of cell in pattern.
 	int thread_idx = blockDim.x * blockIdx.x + threadIdx.x;
 	int stride = blockDim.x * gridDim.x;
-
 	int size = pattern->cols * pattern->rows;
-
 	for (int cell_idx = thread_idx; cell_idx < size; cell_idx += stride) {
 		int2 pattern_cell = get_grid_cell(cell_idx, pattern->cols);
 		char val = pattern->pattern[cell_idx] - '0';
 
 		// (0,0) is at the bottom left
 		int idx = get_world_index(row - pattern_cell.x, col + pattern_cell.y);
-		cell_age[idx] = val;
-		cell_status[idx] = val;
+		switch (type) {
+		case NORMAL: 
+			cell_age[idx] = val;
+			cell_status[idx] = val; 
+			break;
+		case HOVER: 
+			cell_status[idx] = cell_to_hovered(cell_status[idx], val); 
+			break;
+		case UNHOVER: 
+			cell_status[idx] = hovered_to_cell(cell_status[idx]); 
+			break;
+		}
 	}
 }
 
-void set_pattern(const Pattern& pattern, int row, int col)
+void set_pattern(const Pattern& pattern, int row, int col, PatternMode type)
 {
+	// This function is the biggest CPU bottleneck when hovering patterns!
+	// It would be more efficient to batch all the patterns and process them
+	// in a kernel. Another option would be to send all the patterns to
+	// the GPU only once at program start-up. 
+
 	WorldVBOMapper mapped_vbos(vbo_resources);
 
 	// We have to send the Pattern to the GPU.
@@ -237,31 +310,44 @@ void set_pattern(const Pattern& pattern, int row, int col)
 	const size_t block_size = 64;
 	int num_blocks = std::ceil(grid_size / (double)block_size);
 	build_pattern_kernel<<<num_blocks, block_size>>>(mapped_vbos.d_cell_age_ptr, 
-		mapped_vbos.d_cell_status_ptr, pattern_wrapper.get_pattern_ptr(), row, col);
+		mapped_vbos.d_cell_status_ptr, pattern_wrapper.get_pattern_ptr(), row, col, type);
 }
 
-void set_pattern(const MultiPattern& pattern, int row, int col)
+void set_pattern(const MultiPattern& pattern, int row, int col, PatternMode type)
 {
-	const auto& blueprints = pattern.blueprints;
-	const auto& row_offsets = pattern.row_offsets;
-	const auto& col_offsets = pattern.col_offsets;
-	for (int i = 0; i < blueprints.size(); ++i) {
-		const Blueprint& blueprint = *blueprints[i];
-		ConwaysCUDA::set_pattern(blueprint, row + row_offsets[i], col + col_offsets[i]);
+	for (int i = 0; i < pattern.blueprints.size(); ++i) {
+		set_pattern(*pattern.blueprints[i], 
+					row + pattern.row_offsets[i], 
+					col + pattern.col_offsets[i], type);
+	}
+}
+
+void set_pattern(const Blueprint & blueprint, int row, int col, PatternMode type)
+{
+	// TODO: a better way to do this? 
+	switch (blueprint.type()) {
+	case Blueprint::BlueprintType::Pattern: 
+		set_pattern(static_cast<const Pattern&>(blueprint), row, col, type);
+		break;
+	case Blueprint::BlueprintType::MultiPattern:
+		set_pattern(static_cast<const MultiPattern&>(blueprint), row, col, type);
+		break;
 	}
 }
 
 void ConwaysCUDA::set_pattern(const Blueprint & blueprint, int row, int col)
 {
-	// TODO: a better way to do this? 
-	switch (blueprint.type()) {
-	case Blueprint::BlueprintType::Pattern: 
-		set_pattern(static_cast<const Pattern&>(blueprint), row, col);
-		break;
-	case Blueprint::BlueprintType::MultiPattern:
-		set_pattern(static_cast<const MultiPattern&>(blueprint), row, col);
-		break;
-	}
+	set_pattern(blueprint, row, col, NORMAL);
+}
+
+void ConwaysCUDA::set_hover_pattern(const Blueprint & blueprint, int row, int col, bool hover)
+{
+	// Hovered state information is written into the cell_status vbo.
+	// That information is then used in the fragment shader to highlight
+	// the given pattern. By using cell_to_hovered and hovered_to_cell,
+	// we make sure no cell_status information is lost. The cell_age vbo
+	// is left untouched when hovering patterns.
+	set_pattern(blueprint, row, col, (hover ? HOVER : UNHOVER));
 }
 
 void ConwaysCUDA::toggle_cell(int row, int col)

@@ -68,9 +68,18 @@ void main()
 	//  1  ; if alive
 	//  0  ; 0 neighbours
 	// -n  ; n is the number of neighbours of the PREVIOUS state
+	//  n \in [-8, 1] ; normal state
+	//  n \in [2, 11] ; hovered state (without pattern bit)
+	//  n \in [22, 31] ; hovered state (with pattern bit)
 	// Tile age:
 	//  k >  0; k ticks alive
 	//  k <= 0; k ticks dead
+
+	// Mouse hovering a pattern
+	if (tile_state >= 2) {
+		frag = vec4(0, 1, 0, 1) * (tile_state / 31.0);
+		return;
+	}
 
 	if (tile_age > 0) {
 		float x = tile_age / 128.0;
