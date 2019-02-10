@@ -45,6 +45,12 @@ namespace {
 		{ 0, 0, -shooter_pattern.height() - 2, -shooter_pattern.height() - 2 },
 		{ 0, shooter_pattern.width() + 2, 0, shooter_pattern.width() + 2 }
 	);
+
+	MultiPattern multi_multi_pattern(
+		{ &multi_test_pattern, &multi_test_pattern, &multi_test_pattern, &multi_test_pattern },
+		{ 0, 0, -multi_test_pattern.height() - 2, -multi_test_pattern.height() - 2 },
+		{ 0, multi_test_pattern.width() + 2, 0, multi_test_pattern.width() + 2 }
+	);
 }
 
 const Blueprint& pattern_blueprints::shooter_pattern = shooter_pattern;
@@ -54,7 +60,8 @@ std::vector<const Blueprint*> pattern_blueprints::all_patterns{
 	&blueprints[0],
 	&blueprints[1],
 	&blueprints[2],
-	&multi_test_pattern
+	&multi_test_pattern,
+	&multi_multi_pattern
 };
 
 void Pattern::build(WORLD_T * world, int w_rows, int w_cols, int row, int col) const

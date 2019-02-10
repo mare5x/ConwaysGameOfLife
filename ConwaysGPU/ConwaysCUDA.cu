@@ -8,6 +8,7 @@
 #include <cmath>
 #include <iostream>
 #include <algorithm>
+#include <unordered_map>
 
 using ConwaysCUDA::CELL_AGE_T;
 using ConwaysCUDA::CELL_STATUS_T;
@@ -18,35 +19,64 @@ namespace {
 		NORMAL, HOVER, UNHOVER	
 	};
 
-	// A utility class for sending Patterns to the GPU.
-	class PatternWrapper {
+	// A utility class for sending Patterns to the GPU (with caching).
+	class PatternCache {
 	public:
-		~PatternWrapper()
+		~PatternCache()
 		{
-			checkCudaErrors(cudaFree(d_pattern));
-			checkCudaErrors(cudaFree(d_pattern_str));
-		}
-
-		void init(int max_pattern_size)
-		{
-			checkCudaErrors(cudaMalloc(&d_pattern, sizeof(Pattern)));
-			checkCudaErrors(cudaMalloc(&d_pattern_str, sizeof(char) * max_pattern_size));
+			for (const auto& entry : cache) {
+				const DevicePattern& d_pat = entry.second;
+				checkCudaErrors(cudaFree(d_pat.d_pattern));
+				checkCudaErrors(cudaFree(d_pat.d_pattern_str));
+			}
 		}
 		
 		void to_gpu(const Pattern& pattern)
 		{
+			// Check if it's cached.
+			auto entry = cache.find(pattern.pattern);
+			if (entry != cache.end()) {
+				cur_pattern = &(*entry).second;
+				return;
+			}
+
+			// Copy it to the GPU.
+			DevicePattern dev_pat;
 			size_t pattern_bytes = pattern.rows * pattern.cols * sizeof(char);
-			cudaMemcpy(d_pattern_str, pattern.pattern, pattern_bytes, cudaMemcpyHostToDevice);
+
+			checkCudaErrors(cudaMalloc(&dev_pat.d_pattern, sizeof(Pattern)));
+			checkCudaErrors(cudaMalloc(&dev_pat.d_pattern_str, pattern_bytes));
+				
+			checkCudaErrors(
+				cudaMemcpy(dev_pat.d_pattern_str, pattern.pattern, 
+						   pattern_bytes, cudaMemcpyHostToDevice
+						  )
+			);
 
 			Pattern pattern_cpy = pattern;
-			pattern_cpy.pattern = d_pattern_str;
-			cudaMemcpy(d_pattern, &pattern_cpy, sizeof(Pattern), cudaMemcpyHostToDevice);
+			pattern_cpy.pattern = dev_pat.d_pattern_str;
+			checkCudaErrors(
+				cudaMemcpy(dev_pat.d_pattern, &pattern_cpy, 
+						   sizeof(Pattern), cudaMemcpyHostToDevice
+						  )
+			);
+			
+			// Save it to the cache.
+			cache.insert({ pattern.pattern, dev_pat });
+			cur_pattern = &dev_pat;
 		}
 
-		const Pattern* get_pattern_ptr() const { return d_pattern; }
+		const Pattern* get_pattern_ptr() const { return cur_pattern->d_pattern; }
 	private:
-		Pattern* d_pattern;
-		char* d_pattern_str;
+		struct DevicePattern {
+			Pattern* d_pattern;
+			char* d_pattern_str;
+		};
+		
+		DevicePattern* cur_pattern;
+
+		// Cache from <pattern string> to <DevicePattern>.
+		std::unordered_map<const char*, DevicePattern> cache;
 	};
 
 	// A utility class for mapping OpenGL VBOs for CUDA usage.
@@ -82,8 +112,7 @@ namespace {
 
 	cudaGraphicsResource* vbo_resources[ConwaysCUDA::_VBO_COUNT];
 
-	const size_t MAX_PATTERN_SIZE = 1<<10;  // scratch pad memory for PatternWrapper
-	PatternWrapper pattern_wrapper;
+	PatternCache pattern_cache;
 
 	// Device constants.
 	// Trying to initialize these two arrays in the kernel resulted 
@@ -94,7 +123,8 @@ namespace {
 
 
 // Forward declaration.
-void set_pattern(const Blueprint & blueprint, int row, int col, PatternMode type);
+void set_pattern(WorldVBOMapper& mapped_vbos,
+	const Blueprint & blueprint, int row, int col, PatternMode type);
 
 
 __device__
@@ -293,51 +323,58 @@ void build_pattern_kernel(CELL_AGE_T* cell_age, CELL_STATUS_T* cell_status,
 	}
 }
 
-void set_pattern(const Pattern& pattern, int row, int col, PatternMode type)
+void set_pattern(WorldVBOMapper& mapped_vbos, 
+	const Pattern& pattern, int row, int col, PatternMode type)
 {
 	// This function is the biggest CPU bottleneck when hovering patterns!
 	// It would be more efficient to batch all the patterns and process them
 	// in a kernel. Another option would be to send all the patterns to
 	// the GPU only once at program start-up. 
-
-	WorldVBOMapper mapped_vbos(vbo_resources);
+	// The option I chose was the simplest: caching in PatternCache.
+	// That fixed the to_gpu() problem. But now the bottleneck is in WorldVBOMapper.
+	// The solution is to map right at the start of pattern building 
+	// (in set_pattern(Blueprint ...)).
 
 	// We have to send the Pattern to the GPU.
-	pattern_wrapper.to_gpu(pattern);
+	pattern_cache.to_gpu(pattern);
 
 	// Make a thread for each cell in the pattern.
 	const size_t grid_size = pattern.width() * pattern.height();
 	const size_t block_size = 64;
 	int num_blocks = std::ceil(grid_size / (double)block_size);
 	build_pattern_kernel<<<num_blocks, block_size>>>(mapped_vbos.d_cell_age_ptr, 
-		mapped_vbos.d_cell_status_ptr, pattern_wrapper.get_pattern_ptr(), row, col, type);
+		mapped_vbos.d_cell_status_ptr, pattern_cache.get_pattern_ptr(), row, col, type);
 }
 
-void set_pattern(const MultiPattern& pattern, int row, int col, PatternMode type)
+void set_pattern(WorldVBOMapper& mapped_vbos,
+	const MultiPattern& pattern, int row, int col, PatternMode type)
 {
 	for (int i = 0; i < pattern.blueprints.size(); ++i) {
-		set_pattern(*pattern.blueprints[i], 
+		set_pattern(mapped_vbos,
+					*pattern.blueprints[i], 
 					row + pattern.row_offsets[i], 
 					col + pattern.col_offsets[i], type);
 	}
 }
 
-void set_pattern(const Blueprint & blueprint, int row, int col, PatternMode type)
+void set_pattern(WorldVBOMapper& mapped_vbos,
+	const Blueprint & blueprint, int row, int col, PatternMode type)
 {
-	// TODO: a better way to do this? 
 	switch (blueprint.type()) {
 	case Blueprint::BlueprintType::Pattern: 
-		set_pattern(static_cast<const Pattern&>(blueprint), row, col, type);
+		set_pattern(mapped_vbos, static_cast<const Pattern&>(blueprint), row, col, type);
 		break;
 	case Blueprint::BlueprintType::MultiPattern:
-		set_pattern(static_cast<const MultiPattern&>(blueprint), row, col, type);
+		set_pattern(mapped_vbos, static_cast<const MultiPattern&>(blueprint), row, col, type);
 		break;
 	}
 }
 
 void ConwaysCUDA::set_pattern(const Blueprint & blueprint, int row, int col)
 {
-	set_pattern(blueprint, row, col, NORMAL);
+	// Map the VBOs here for performance reasons.
+	WorldVBOMapper mapped_vbos(vbo_resources);
+	set_pattern(mapped_vbos, blueprint, row, col, NORMAL);
 }
 
 void ConwaysCUDA::set_hover_pattern(const Blueprint & blueprint, int row, int col, bool hover)
@@ -347,7 +384,8 @@ void ConwaysCUDA::set_hover_pattern(const Blueprint & blueprint, int row, int co
 	// the given pattern. By using cell_to_hovered and hovered_to_cell,
 	// we make sure no cell_status information is lost. The cell_age vbo
 	// is left untouched when hovering patterns.
-	set_pattern(blueprint, row, col, (hover ? HOVER : UNHOVER));
+	WorldVBOMapper mapped_vbos(vbo_resources);
+	set_pattern(mapped_vbos, blueprint, row, col, (hover ? HOVER : UNHOVER));
 }
 
 void ConwaysCUDA::toggle_cell(int row, int col)
@@ -368,8 +406,6 @@ bool ConwaysCUDA::init(int rows, int cols, GLuint vbos[_VBO_COUNT])
 	cudaMemcpyToSymbol(d_world_cols, &world_cols, sizeof(int));
 
 	checkCudaErrors(cudaMalloc(&d_prev_cell_age_data, sizeof(CELL_AGE_T) * rows * cols));
-
-	pattern_wrapper.init(MAX_PATTERN_SIZE);
 
 	// Necessary for OpenGL interop.
 	for (int i = 0; i < _VBO_COUNT; ++i)
