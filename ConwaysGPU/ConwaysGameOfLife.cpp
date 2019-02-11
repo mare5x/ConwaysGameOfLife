@@ -71,6 +71,8 @@ void ConwaysGameOfLife::update()
 	static int accumulator = 0;
 	const int dt = 1000 / ticks_per_second;
 
+	ConwaysCUDA::start_interop();
+
 	if (std::abs(camera_velocity.x) > 1e-6 || std::abs(camera_velocity.y) > 1e-6)
 		move_camera_center(camera_velocity.x / zoom, camera_velocity.y / zoom);
 
@@ -91,6 +93,8 @@ void ConwaysGameOfLife::update()
 		}
 	}
 	prev_ticks = SDL_GetTicks();
+
+	ConwaysCUDA::stop_interop();
 }
 
 void ConwaysGameOfLife::render()
@@ -195,9 +199,12 @@ void ConwaysGameOfLife::toggle_tile_state(int x, int y)
 	int row = tile.x;
 	int col = tile.y;
 	if (tile_in_bounds(row, col)) {
-		if (is_playing)
+		if (is_playing) {
+			ConwaysCUDA::start_interop();
 			ConwaysCUDA::toggle_cell(row, col);
+			ConwaysCUDA::stop_interop();
 			//renderer.toggle_cell(row, col);
+		}
 		else {
 			WORLD_T& state = initial_world_state[row * COLS + col];
 			state = (state > 0 ? 0 : 1);

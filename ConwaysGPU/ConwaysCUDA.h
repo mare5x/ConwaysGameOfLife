@@ -24,6 +24,10 @@ namespace ConwaysCUDA {
 
 	void exit();
 
+	// For performance reasons, wrap all functions below with these two functions.
+	void start_interop();
+	void stop_interop();
+
 	void tick();
 
 	// Build the given blueprint pattern in "real-time", where the

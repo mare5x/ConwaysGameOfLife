@@ -14,6 +14,7 @@ using ConwaysCUDA::CELL_AGE_T;
 using ConwaysCUDA::CELL_STATUS_T;
 
 namespace {
+	typedef unsigned int uint;
 
 	enum PatternMode: uint8_t {
 		NORMAL, HOVER, UNHOVER	
@@ -82,25 +83,63 @@ namespace {
 	// A utility class for mapping OpenGL VBOs for CUDA usage.
 	class WorldVBOMapper {
 	public:
-		WorldVBOMapper(cudaGraphicsResource* resources[ConwaysCUDA::_VBO_COUNT])
-			: resources(resources)
+		void init(GLuint vbos[ConwaysCUDA::_VBO_COUNT])
 		{
-			checkCudaErrors(cudaGraphicsMapResources(ConwaysCUDA::_VBO_COUNT, resources, 0));
+			for (int i = 0; i < ConwaysCUDA::_VBO_COUNT; ++i)
+				checkCudaErrors(cudaGraphicsGLRegisterBuffer(
+					&vbo_resources[i], vbos[i], cudaGraphicsRegisterFlagsNone));
+		}
+
+		void exit()
+		{
+			for (int i = 0; i < ConwaysCUDA::_VBO_COUNT; ++i)
+				checkCudaErrors(cudaGraphicsUnregisterResource(vbo_resources[i]));
+		}
+
+		void map()
+		{
+			if (_is_mapped) return;
+
+			checkCudaErrors(
+				cudaGraphicsMapResources(ConwaysCUDA::_VBO_COUNT, vbo_resources, 0)
+			);
 
 			size_t num_bytes;
-			checkCudaErrors(cudaGraphicsResourceGetMappedPointer((void **)&d_cell_status_ptr, &num_bytes, resources[ConwaysCUDA::CELL_STATUS]));
-			checkCudaErrors(cudaGraphicsResourceGetMappedPointer((void **)&d_cell_age_ptr, &num_bytes, resources[ConwaysCUDA::CELL_AGE]));
+			checkCudaErrors(
+				cudaGraphicsResourceGetMappedPointer(
+					(void **)&d_cell_status_ptr, 
+					&num_bytes, 
+					vbo_resources[ConwaysCUDA::CELL_STATUS])
+			);
+			checkCudaErrors(
+				cudaGraphicsResourceGetMappedPointer(
+					(void **)&d_cell_age_ptr, 
+					&num_bytes, 
+					vbo_resources[ConwaysCUDA::CELL_AGE])
+			);
+
+			_is_mapped = true;
 		}
 
-		~WorldVBOMapper() 
+		void unmap()
 		{
-			checkCudaErrors(cudaGraphicsUnmapResources(ConwaysCUDA::_VBO_COUNT, resources, 0));
+			checkCudaErrors(
+				cudaGraphicsUnmapResources(ConwaysCUDA::_VBO_COUNT, vbo_resources, 0)
+			);
+			_is_mapped = false;
 		}
+
+		//bool is_mapped() const { return _is_mapped; }
+
+		CELL_STATUS_T* get_cell_status() { return d_cell_status_ptr; }
+		CELL_AGE_T* get_cell_age() { return d_cell_age_ptr; }
+	private:
+		bool _is_mapped = false;
+
+		cudaGraphicsResource* vbo_resources[ConwaysCUDA::_VBO_COUNT];
 
 		CELL_STATUS_T* d_cell_status_ptr;
 		CELL_AGE_T* d_cell_age_ptr;
-	private:
-		cudaGraphicsResource** resources;
 	};
 
 	CELL_AGE_T* d_prev_cell_age_data;  // (in GPU memory).
@@ -110,8 +149,7 @@ namespace {
 	__device__ int d_world_rows, d_world_cols;
 	int world_rows, world_cols;
 
-	cudaGraphicsResource* vbo_resources[ConwaysCUDA::_VBO_COUNT];
-
+	WorldVBOMapper vbo_mapper;
 	PatternCache pattern_cache;
 
 	// Device constants.
@@ -123,8 +161,7 @@ namespace {
 
 
 // Forward declaration.
-void set_pattern(WorldVBOMapper& mapped_vbos,
-	const Blueprint & blueprint, int row, int col, PatternMode type);
+void set_pattern(const Blueprint & blueprint, int row, int col, PatternMode type);
 
 
 __device__
@@ -261,25 +298,23 @@ void ConwaysCUDA::tick()
 	// 3. unmap the VBO.
 	// Steps 0 and 3 are done by WorldVBOMapper
 
-	WorldVBOMapper mapped_vbos(vbo_resources);
-
 	// CUDA threads execute in a _grid_ of of threads. Each block in the grid is
 	// of size block_size, and num_blocks is how many blocks there are in the grid.
 	// Total number of simultaneous threads is then block_size * num_blocks.
 	// When running a kernel function (__global__) (GPU code), we specify the size
 	// of the thread grid.
-	const size_t grid_size = world_rows * world_cols;
-	const size_t block_size = 256;
-	int num_blocks = std::ceil(grid_size / block_size);
+	const uint block_size = 256;
+	uint grid_size = world_rows * world_cols;
+	uint num_blocks = (grid_size + block_size - 1) / block_size;
 
 	// Copy the previous world state using cudaMemcpy or copy_mem kernel:
 	//cudaMemcpy(world_state, data_ptr, grid_size * sizeof(GLbyte), cudaMemcpyDeviceToDevice);
-	copy_mem<<<num_blocks, block_size>>>(mapped_vbos.d_cell_age_ptr, 
+	copy_mem<<<num_blocks, block_size>>>(vbo_mapper.get_cell_age(), 
 										 d_prev_cell_age_data, grid_size);
 
 	tick_kernel<<<num_blocks, block_size>>>(d_prev_cell_age_data, 
-											mapped_vbos.d_cell_status_ptr, 
-											mapped_vbos.d_cell_age_ptr);
+											vbo_mapper.get_cell_status(), 
+											vbo_mapper.get_cell_age());
 }
 
 __global__
@@ -323,8 +358,7 @@ void build_pattern_kernel(CELL_AGE_T* cell_age, CELL_STATUS_T* cell_status,
 	}
 }
 
-void set_pattern(WorldVBOMapper& mapped_vbos, 
-	const Pattern& pattern, int row, int col, PatternMode type)
+void set_pattern(const Pattern& pattern, int row, int col, PatternMode type)
 {
 	// This function is the biggest CPU bottleneck when hovering patterns!
 	// It would be more efficient to batch all the patterns and process them
@@ -339,42 +373,38 @@ void set_pattern(WorldVBOMapper& mapped_vbos,
 	pattern_cache.to_gpu(pattern);
 
 	// Make a thread for each cell in the pattern.
-	const size_t grid_size = pattern.width() * pattern.height();
-	const size_t block_size = 64;
-	int num_blocks = std::ceil(grid_size / (double)block_size);
-	build_pattern_kernel<<<num_blocks, block_size>>>(mapped_vbos.d_cell_age_ptr, 
-		mapped_vbos.d_cell_status_ptr, pattern_cache.get_pattern_ptr(), row, col, type);
+	const uint block_size = 64;
+	uint grid_size = pattern.width() * pattern.height();
+	uint num_blocks = (grid_size + block_size - 1) / block_size;
+	build_pattern_kernel<<<num_blocks, block_size>>>(
+		vbo_mapper.get_cell_age(), vbo_mapper.get_cell_status(), 
+		pattern_cache.get_pattern_ptr(), row, col, type);
 }
 
-void set_pattern(WorldVBOMapper& mapped_vbos,
-	const MultiPattern& pattern, int row, int col, PatternMode type)
+void set_pattern(const MultiPattern& pattern, int row, int col, PatternMode type)
 {
 	for (int i = 0; i < pattern.blueprints.size(); ++i) {
-		set_pattern(mapped_vbos,
-					*pattern.blueprints[i], 
+		set_pattern(*pattern.blueprints[i], 
 					row + pattern.row_offsets[i], 
 					col + pattern.col_offsets[i], type);
 	}
 }
 
-void set_pattern(WorldVBOMapper& mapped_vbos,
-	const Blueprint & blueprint, int row, int col, PatternMode type)
+void set_pattern(const Blueprint & blueprint, int row, int col, PatternMode type)
 {
 	switch (blueprint.type()) {
 	case Blueprint::BlueprintType::Pattern: 
-		set_pattern(mapped_vbos, static_cast<const Pattern&>(blueprint), row, col, type);
+		set_pattern(static_cast<const Pattern&>(blueprint), row, col, type);
 		break;
 	case Blueprint::BlueprintType::MultiPattern:
-		set_pattern(mapped_vbos, static_cast<const MultiPattern&>(blueprint), row, col, type);
+		set_pattern(static_cast<const MultiPattern&>(blueprint), row, col, type);
 		break;
 	}
 }
 
 void ConwaysCUDA::set_pattern(const Blueprint & blueprint, int row, int col)
 {
-	// Map the VBOs here for performance reasons.
-	WorldVBOMapper mapped_vbos(vbo_resources);
-	set_pattern(mapped_vbos, blueprint, row, col, NORMAL);
+	set_pattern(blueprint, row, col, NORMAL);
 }
 
 void ConwaysCUDA::set_hover_pattern(const Blueprint & blueprint, int row, int col, bool hover)
@@ -384,16 +414,14 @@ void ConwaysCUDA::set_hover_pattern(const Blueprint & blueprint, int row, int co
 	// the given pattern. By using cell_to_hovered and hovered_to_cell,
 	// we make sure no cell_status information is lost. The cell_age vbo
 	// is left untouched when hovering patterns.
-	WorldVBOMapper mapped_vbos(vbo_resources);
-	set_pattern(mapped_vbos, blueprint, row, col, (hover ? HOVER : UNHOVER));
+	set_pattern(blueprint, row, col, (hover ? HOVER : UNHOVER));
 }
 
 void ConwaysCUDA::toggle_cell(int row, int col)
 {
-	WorldVBOMapper mapped_vbos(vbo_resources);
 	// The alternative to using glMapBuffer, etc...
-	toggle_cell_kernel<<<1, 1>>>(mapped_vbos.d_cell_age_ptr, 
-								 mapped_vbos.d_cell_status_ptr, 
+	toggle_cell_kernel<<<1, 1>>>(vbo_mapper.get_cell_age(), 
+								 vbo_mapper.get_cell_status(), 
 								 row * world_cols + col);
 }
 
@@ -408,16 +436,23 @@ bool ConwaysCUDA::init(int rows, int cols, GLuint vbos[_VBO_COUNT])
 	checkCudaErrors(cudaMalloc(&d_prev_cell_age_data, sizeof(CELL_AGE_T) * rows * cols));
 
 	// Necessary for OpenGL interop.
-	for (int i = 0; i < _VBO_COUNT; ++i)
-		checkCudaErrors(cudaGraphicsGLRegisterBuffer(
-			&vbo_resources[i], vbos[i], cudaGraphicsRegisterFlagsNone));
+	vbo_mapper.init(vbos);
 
 	return true;
 }
 
 void ConwaysCUDA::exit()
 {
-	for (int i = 0; i < _VBO_COUNT; ++i)
-		checkCudaErrors(cudaGraphicsUnregisterResource(vbo_resources[i]));
+	vbo_mapper.exit();
 	checkCudaErrors(cudaFree(d_prev_cell_age_data));
+}
+
+void ConwaysCUDA::start_interop()
+{
+	vbo_mapper.map();
+}
+
+void ConwaysCUDA::stop_interop()
+{
+	vbo_mapper.unmap();
 }
