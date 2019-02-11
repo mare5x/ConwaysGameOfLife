@@ -29,10 +29,11 @@ private:
 
 	void handle_input(SDL_Event& e);
 
-	void init_world_state(bool send_to_gpu = false);
+	void init_world_state();
+	void clear_world();
 	void randomize_world();
-	void world_to_renderer();
-	void reset_world();
+	void reset_simulation();
+	void pause_resume_simulation();
 
 	void toggle_tile_state(int x, int y);
 	bool tile_in_bounds(int row, int col) const { return row >= 0 && row < ROWS && col >= 0 && col < COLS; }
@@ -75,6 +76,7 @@ private:
 	bool is_playing = false;
 	bool is_grid_visible = true;
 	bool is_pattern_hovering = false;
+	bool simulation_started = false;
 	unsigned int generation = 0;
 
 	vec2<float> camera_velocity;

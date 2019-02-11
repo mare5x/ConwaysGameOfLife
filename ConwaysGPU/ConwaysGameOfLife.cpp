@@ -156,15 +156,16 @@ bool ConwaysGameOfLife::init_gl()
 	return true;
 }
 
-void ConwaysGameOfLife::init_world_state(bool send_to_gpu)
+void ConwaysGameOfLife::init_world_state()
 {
 	initial_world_state.resize(ROWS * COLS);
+	clear_world();
+}
+
+void ConwaysGameOfLife::clear_world()
+{
 	std::fill(initial_world_state.begin(), initial_world_state.end(), 0);
-
-	if (send_to_gpu)
-		world_to_renderer();
-
-	is_playing = false;
+	reset_simulation();
 }
 
 void ConwaysGameOfLife::randomize_world()
@@ -172,19 +173,21 @@ void ConwaysGameOfLife::randomize_world()
 	std::srand(std::time(nullptr));
 	for (int i = 0; i < initial_world_state.size(); ++i)
 		initial_world_state[i] = (std::rand() % 4 == 0) ? 1 : 0;
-	world_to_renderer();
+	reset_simulation();
 }
 
-void ConwaysGameOfLife::world_to_renderer()
-{
-	renderer.set_world_grid(initial_world_state.data());
-	is_playing = false;
-}
-
-void ConwaysGameOfLife::reset_world()
+void ConwaysGameOfLife::reset_simulation()
 {
 	generation = 0;
-	world_to_renderer();
+	simulation_started = false;
+	is_playing = false;
+	renderer.set_world_grid(initial_world_state.data());
+}
+
+void ConwaysGameOfLife::pause_resume_simulation()
+{
+	is_playing = !is_playing;
+	simulation_started = true;
 }
 
 void ConwaysGameOfLife::toggle_tile_state(int x, int y)
@@ -193,16 +196,15 @@ void ConwaysGameOfLife::toggle_tile_state(int x, int y)
 	int row = tile.x;
 	int col = tile.y;
 	if (tile_in_bounds(row, col)) {
-		if (is_playing) {
+		if (simulation_started) {
 			ConwaysCUDA::start_interop();
 			ConwaysCUDA::toggle_cell(row, col);
 			ConwaysCUDA::stop_interop();
 			//renderer.toggle_cell(row, col);
-		}
-		else {
+		} else {
 			WORLD_T& state = initial_world_state[row * COLS + col];
 			state = (state > 0 ? 0 : 1);
-			world_to_renderer();
+			reset_simulation();
 		}
 	}
 }
@@ -263,11 +265,11 @@ void ConwaysGameOfLife::place_pattern(int x, int y)
 	vec2<int> tile = screen_to_tile(x, y);
 	if (!tile_in_bounds(tile.x, tile.y)) return;
 
-	if (is_playing) {
+	if (simulation_started) {
 		ConwaysCUDA::set_pattern(blueprint, tile.x, tile.y);
 	} else {
 		set_blueprint(blueprint, tile.x, tile.y);
-		world_to_renderer();
+		reset_simulation();
 	}
 }
 
@@ -317,11 +319,11 @@ void ConwaysGameOfLife::next_pattern()
 void ConwaysGameOfLife::print_stats()
 {
 	printf("---- INFO ----\n");
+	printf("%d rows by %d columns\n", ROWS, COLS);
 	printf("Window: %d px x %d px\n", width, height);
 	printf("Zoom: %.3f\n", zoom);
 	printf("Camera center: (%.3f, %.3f)\n", camera_center.x, camera_center.y);
 	printf("Ticks per second: %.2f\n", ticks_per_second);
-	printf("%d rows by %d columns\n", ROWS, COLS);
 	printf("On generation %d\n\n", generation);
 }
 
@@ -370,11 +372,11 @@ void ConwaysGameOfLife::handle_input(SDL_Event & e)
 		break;
 	case SDL_KEYUP:
 		switch (e.key.keysym.sym) {
-			case SDLK_SPACE: is_playing = !is_playing; break;
+			case SDLK_SPACE: pause_resume_simulation(); break;
 			case SDLK_p: print_stats(); break;
 			case SDLK_r: randomize_world(); break;
-			case SDLK_c: init_world_state(true); break;
-			case SDLK_x: reset_world(); break;
+			case SDLK_c: clear_world(); break;
+			case SDLK_x: reset_simulation(); break;
 			case SDLK_g: renderer.set_grid_visibility(is_grid_visible = !is_grid_visible); break;
 
 			case SDLK_w: if (camera_velocity.y > 0) camera_velocity.y = 0; break;
