@@ -33,6 +33,10 @@ struct vec2 {
 		y *= scalar;
 		return *this;
 	}
+
+	bool is_zero() const { return len2() < 1e-6; }
+
+	T len2() const { return x * x + y * y; }
 };
 
 template<class T>

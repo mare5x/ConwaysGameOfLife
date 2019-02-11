@@ -69,19 +69,16 @@ void ConwaysGameOfLife::update()
 {
 	static unsigned int prev_ticks = 0;
 	static int accumulator = 0;
-	const int dt = 1000 / ticks_per_second;
+	const int dt = 1000 / ticks_per_second;  // in ms
 
 	ConwaysCUDA::start_interop();
 
-	if (std::abs(camera_velocity.x) > 1e-6 || std::abs(camera_velocity.y) > 1e-6)
+	if (!camera_velocity.is_zero())
 		move_camera_center(camera_velocity.x / zoom, camera_velocity.y / zoom);
 
 	// Handle mouse hover patterns.
-	if (is_pattern_hovering) {
-		int mouse_x, mouse_y;
-		SDL_GetMouseState(&mouse_x, &mouse_y);
-		handle_pattern_hover(mouse_x, mouse_y);
-	}
+	if (is_pattern_hovering)
+		update_pattern_hover();
 
 	if (is_playing) {
 		unsigned int ticks = SDL_GetTicks();
@@ -180,17 +177,14 @@ void ConwaysGameOfLife::randomize_world()
 
 void ConwaysGameOfLife::world_to_renderer()
 {
-	set_is_playing(false);
 	renderer.set_world_grid(initial_world_state.data());
+	is_playing = false;
 }
 
-void ConwaysGameOfLife::set_is_playing(bool val)
+void ConwaysGameOfLife::reset_world()
 {
-	is_playing = val;
-	if (is_playing) {
-		renderer.set_world_grid(initial_world_state.data());
-		generation = 0;
-	}
+	generation = 0;
+	world_to_renderer();
 }
 
 void ConwaysGameOfLife::toggle_tile_state(int x, int y)
@@ -251,6 +245,18 @@ void ConwaysGameOfLife::update_zoom(int sign)
 	renderer.set_zoom(zoom);
 }
 
+void ConwaysGameOfLife::update_tick_rate(int sign)
+{
+	static float tick_rate_x = std::log(ticks_per_second);
+
+	sign = (sign > 0) - (sign < 0);
+
+	// ticks_per_second \in [0.13, 403]
+	tick_rate_x = clamp(tick_rate_x + 0.05f * sign, -2.0f, 6.0f);
+
+	ticks_per_second = std::exp(tick_rate_x);
+}
+
 void ConwaysGameOfLife::place_pattern(int x, int y)
 {
 	const Blueprint& blueprint = *pattern_blueprints::all_patterns[current_blueprint];
@@ -273,13 +279,16 @@ void ConwaysGameOfLife::toggle_pattern_hovering()
 	if (!is_pattern_hovering) {
 		const Blueprint& prev_blueprint = *pattern_blueprints::all_patterns[pattern_blueprint];
 		ConwaysCUDA::set_hover_pattern(prev_blueprint, pattern_tile.x, pattern_tile.y, false);
+	} else {
+		update_pattern_hover(true);
 	}
 }
 
-void ConwaysGameOfLife::handle_pattern_hover(int x, int y)
+void ConwaysGameOfLife::update_pattern_hover(int x, int y, bool force)
 {
 	vec2<int> tile = screen_to_tile(x, y);
-	if (tile == pattern_tile || !tile_in_bounds(tile.x, tile.y)) return;
+	if ((!force && tile == pattern_tile && current_blueprint == pattern_blueprint)
+		|| !tile_in_bounds(tile.x, tile.y)) return;
 
 	// Remove previous pattern, then hover the current one ...
 	const Blueprint& prev_blueprint = *pattern_blueprints::all_patterns[pattern_blueprint];
@@ -290,6 +299,19 @@ void ConwaysGameOfLife::handle_pattern_hover(int x, int y)
 
 	pattern_tile = tile;
 	pattern_blueprint = current_blueprint;
+}
+
+void ConwaysGameOfLife::update_pattern_hover(bool force)
+{
+	int mouse_x, mouse_y;
+	SDL_GetMouseState(&mouse_x, &mouse_y);
+	update_pattern_hover(mouse_x, mouse_y, force);
+}
+
+void ConwaysGameOfLife::next_pattern()
+{
+	current_blueprint = 
+		(current_blueprint + 1) % pattern_blueprints::all_patterns.size(); 
 }
 
 void ConwaysGameOfLife::print_stats()
@@ -338,12 +360,8 @@ void ConwaysGameOfLife::handle_input(SDL_Event & e)
 		break;
 	case SDL_KEYDOWN:
 		switch (e.key.keysym.sym) {
-			case SDLK_q:
-				ticks_per_second = clamp(ticks_per_second - 0.25f, 0.25f, 420.0f);
-				break;
-			case SDLK_e:
-				ticks_per_second = clamp(ticks_per_second + 0.25f, 0.25f, 420.0f);
-				break;
+			case SDLK_q: update_tick_rate(-1); break;
+			case SDLK_e: update_tick_rate(1); break;
 			case SDLK_w: camera_velocity.y =  0.01f; break;
 			case SDLK_s: camera_velocity.y = -0.01f; break;
 			case SDLK_d: camera_velocity.x =  0.01f; break;
@@ -352,22 +370,19 @@ void ConwaysGameOfLife::handle_input(SDL_Event & e)
 		break;
 	case SDL_KEYUP:
 		switch (e.key.keysym.sym) {
-			case SDLK_SPACE: set_is_playing(!is_playing); break;
+			case SDLK_SPACE: is_playing = !is_playing; break;
 			case SDLK_p: print_stats(); break;
 			case SDLK_r: randomize_world(); break;
 			case SDLK_c: init_world_state(true); break;
-			case SDLK_x: world_to_renderer(); break;
+			case SDLK_x: reset_world(); break;
 			case SDLK_g: renderer.set_grid_visibility(is_grid_visible = !is_grid_visible); break;
 
-			case SDLK_w: camera_velocity.y = 0; break;
-			case SDLK_s: camera_velocity.y = 0; break;
-			case SDLK_d: camera_velocity.x = 0; break;
-			case SDLK_a: camera_velocity.x = 0; break;
+			case SDLK_w: if (camera_velocity.y > 0) camera_velocity.y = 0; break;
+			case SDLK_s: if (camera_velocity.y < 0) camera_velocity.y = 0; break;
+			case SDLK_d: if (camera_velocity.x > 0) camera_velocity.x = 0; break;
+			case SDLK_a: if (camera_velocity.x < 0) camera_velocity.x = 0; break;
 
-			case SDLK_1: 
-				current_blueprint = 
-					(current_blueprint + 1) % pattern_blueprints::all_patterns.size(); 
-				break;
+			case SDLK_1: next_pattern(); break;
 			case SDLK_TAB: toggle_pattern_hovering(); break;
 		}
 		break;

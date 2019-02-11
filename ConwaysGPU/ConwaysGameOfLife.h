@@ -32,8 +32,8 @@ private:
 	void init_world_state(bool send_to_gpu = false);
 	void randomize_world();
 	void world_to_renderer();
+	void reset_world();
 
-	void set_is_playing(bool val);
 	void toggle_tile_state(int x, int y);
 	bool tile_in_bounds(int row, int col) const { return row >= 0 && row < ROWS && col >= 0 && col < COLS; }
 
@@ -45,6 +45,8 @@ private:
 	void move_camera_center(float dx, float dy);
 	void update_zoom(int sign);
 
+	void update_tick_rate(int sign);
+
 	// Place the currently set pattern so that the top left corner is at 
 	// (x,y) in screen coordinates.
 	void place_pattern(int x, int y);
@@ -52,7 +54,9 @@ private:
 		blueprint.build(initial_world_state.data(), ROWS, COLS, row, col);
 	}
 	void toggle_pattern_hovering();
-	void handle_pattern_hover(int x, int y);
+	void update_pattern_hover(int x, int y, bool force = false);
+	void update_pattern_hover(bool force = false);
+	void next_pattern();
 
 	void print_stats();
 
