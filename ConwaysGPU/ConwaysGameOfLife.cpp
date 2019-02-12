@@ -30,6 +30,8 @@ ConwaysGameOfLife::ConwaysGameOfLife()
 	, renderer()
 	, camera_center(0.5f, 0.5f)
 	, camera_velocity()
+	, current_blueprint()
+	, pattern_blueprint()
 	, pattern_tile()
 {
 	if (!init())
@@ -261,7 +263,7 @@ void ConwaysGameOfLife::update_tick_rate(int sign)
 
 void ConwaysGameOfLife::place_pattern(int x, int y)
 {
-	const Blueprint& blueprint = *pattern_blueprints::all_patterns[current_blueprint];
+	const Blueprint& blueprint = get_blueprint(current_blueprint);
 	vec2<int> tile = screen_to_tile(x, y);
 	if (!tile_in_bounds(tile.x, tile.y)) return;
 
@@ -279,7 +281,7 @@ void ConwaysGameOfLife::toggle_pattern_hovering()
 
 	// Remove the hovering remains.
 	if (!is_pattern_hovering) {
-		const Blueprint& prev_blueprint = *pattern_blueprints::all_patterns[pattern_blueprint];
+		const Blueprint& prev_blueprint = get_blueprint(pattern_blueprint);
 		ConwaysCUDA::set_hover_pattern(prev_blueprint, pattern_tile.x, pattern_tile.y, false);
 	} else {
 		update_pattern_hover(true);
@@ -293,10 +295,10 @@ void ConwaysGameOfLife::update_pattern_hover(int x, int y, bool force)
 		|| !tile_in_bounds(tile.x, tile.y)) return;
 
 	// Remove previous pattern, then hover the current one ...
-	const Blueprint& prev_blueprint = *pattern_blueprints::all_patterns[pattern_blueprint];
+	const Blueprint& prev_blueprint = get_blueprint(pattern_blueprint);
 	ConwaysCUDA::set_hover_pattern(prev_blueprint, pattern_tile.x, pattern_tile.y, false);
 
-	const Blueprint& blueprint = *pattern_blueprints::all_patterns[current_blueprint];
+	const Blueprint& blueprint = get_blueprint(current_blueprint);
 	ConwaysCUDA::set_hover_pattern(blueprint, tile.x, tile.y, true);
 
 	pattern_tile = tile;
@@ -310,13 +312,22 @@ void ConwaysGameOfLife::update_pattern_hover(bool force)
 	update_pattern_hover(mouse_x, mouse_y, force);
 }
 
-void ConwaysGameOfLife::next_pattern()
+void ConwaysGameOfLife::next_pattern(pattern_blueprints::PatternCategory category)
 {
-	current_blueprint = 
-		(current_blueprint + 1) % pattern_blueprints::all_patterns.size(); 
+	current_blueprint.x = static_cast<int>(category);
+	int& idx2 = blueprint_indices[current_blueprint.x];
+	if (current_blueprint.x == pattern_blueprint.x)
+		idx2 = (idx2 + 1) % 
+			   pattern_blueprints::all_patterns[current_blueprint.x].size();
+	current_blueprint.y = idx2;
 }
 
-void ConwaysGameOfLife::print_stats()
+Blueprint & ConwaysGameOfLife::get_blueprint(const vec2<int>& index2) const
+{
+	return *pattern_blueprints::all_patterns[index2.x][index2.y];
+}
+
+void ConwaysGameOfLife::print_stats() const
 {
 	printf("---- INFO ----\n");
 	printf("%d rows by %d columns\n", ROWS, COLS);
@@ -384,7 +395,10 @@ void ConwaysGameOfLife::handle_input(SDL_Event & e)
 			case SDLK_d: if (camera_velocity.x > 0) camera_velocity.x = 0; break;
 			case SDLK_a: if (camera_velocity.x < 0) camera_velocity.x = 0; break;
 
-			case SDLK_1: next_pattern(); break;
+			case SDLK_1: next_pattern(pattern_blueprints::STILL_LIFES); break;
+			case SDLK_2: next_pattern(pattern_blueprints::OSCILLATORS); break;
+			case SDLK_3: next_pattern(pattern_blueprints::SPACESHIPS); break;
+			case SDLK_4: next_pattern(pattern_blueprints::OTHERS); break;
 			case SDLK_TAB: toggle_pattern_hovering(); break;
 		}
 		break;

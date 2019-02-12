@@ -57,9 +57,10 @@ private:
 	void toggle_pattern_hovering();
 	void update_pattern_hover(int x, int y, bool force = false);
 	void update_pattern_hover(bool force = false);
-	void next_pattern();
+	void next_pattern(pattern_blueprints::PatternCategory category);
+	const Blueprint& get_blueprint(const vec2<int>& index2) const;
 
-	void print_stats();
+	void print_stats() const;
 
 	int width, height;
 
@@ -84,8 +85,10 @@ private:
 	float zoom = 1.0f;
 	float ticks_per_second = 10.0f;
 
-	int current_blueprint = 0;
-	int pattern_blueprint = 0;
+	// [x] : category index
+	// [y] : index in category
+	int blueprint_indices[pattern_blueprints::_N_PATTERN_CATEGORIES] = {};
+	vec2<int> current_blueprint, pattern_blueprint;
 	vec2<int> pattern_tile;
 
 	// We can't just use an std::array or something similar because 

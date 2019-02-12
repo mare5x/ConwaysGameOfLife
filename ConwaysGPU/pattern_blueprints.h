@@ -57,6 +57,14 @@ struct MultiPattern : Blueprint {
 
 
 namespace pattern_blueprints {
-	extern const Blueprint& shooter_pattern;
-	extern std::vector<const Blueprint*> all_patterns;
+	enum PatternCategory {
+		STILL_LIFES, OSCILLATORS, SPACESHIPS, OTHERS, _N_PATTERN_CATEGORIES
+	};
+	extern std::vector<std::vector<const Blueprint*> > all_patterns;
+
+	// Patterns based on https://en.wikipedia.org/wiki/Conway%27s_Game_of_Life
+	extern std::vector<const Blueprint*>& still_lifes;
+	extern std::vector<const Blueprint*>& oscillators;
+	extern std::vector<const Blueprint*>& spaceships;
+	extern std::vector<const Blueprint*>& others;
 }
