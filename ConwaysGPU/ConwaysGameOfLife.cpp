@@ -263,7 +263,7 @@ void ConwaysGameOfLife::update_tick_rate(int sign)
 
 void ConwaysGameOfLife::place_pattern(int x, int y)
 {
-	const Blueprint& blueprint = get_blueprint(current_blueprint);
+	Blueprint& blueprint = get_blueprint(current_blueprint);
 	vec2<int> tile = screen_to_tile(x, y);
 	if (!tile_in_bounds(tile.x, tile.y)) return;
 
@@ -275,13 +275,21 @@ void ConwaysGameOfLife::place_pattern(int x, int y)
 	}
 }
 
+void ConwaysGameOfLife::rotate_pattern()
+{
+	Blueprint& blueprint = get_blueprint(current_blueprint);
+	blueprint.set_rotation(blueprint.get_rotation() + 90);
+	if (is_pattern_hovering)
+		update_pattern_hover(true);
+}
+
 void ConwaysGameOfLife::toggle_pattern_hovering()
 {
 	is_pattern_hovering = !is_pattern_hovering;
 
 	// Remove the hovering remains.
 	if (!is_pattern_hovering) {
-		const Blueprint& prev_blueprint = get_blueprint(pattern_blueprint);
+		Blueprint& prev_blueprint = get_blueprint(pattern_blueprint);
 		ConwaysCUDA::set_hover_pattern(prev_blueprint, pattern_tile.x, pattern_tile.y, false);
 	} else {
 		update_pattern_hover(true);
@@ -295,14 +303,18 @@ void ConwaysGameOfLife::update_pattern_hover(int x, int y, bool force)
 		|| !tile_in_bounds(tile.x, tile.y)) return;
 
 	// Remove previous pattern, then hover the current one ...
-	const Blueprint& prev_blueprint = get_blueprint(pattern_blueprint);
+	Blueprint& prev_blueprint = get_blueprint(pattern_blueprint);
+	int prev_rotation = prev_blueprint.get_rotation();
+	prev_blueprint.set_rotation(pattern_rotation);
 	ConwaysCUDA::set_hover_pattern(prev_blueprint, pattern_tile.x, pattern_tile.y, false);
+	prev_blueprint.set_rotation(prev_rotation);
 
-	const Blueprint& blueprint = get_blueprint(current_blueprint);
+	Blueprint& blueprint = get_blueprint(current_blueprint);
 	ConwaysCUDA::set_hover_pattern(blueprint, tile.x, tile.y, true);
 
 	pattern_tile = tile;
 	pattern_blueprint = current_blueprint;
+	pattern_rotation = blueprint.get_rotation();
 }
 
 void ConwaysGameOfLife::update_pattern_hover(bool force)
@@ -368,7 +380,7 @@ void ConwaysGameOfLife::handle_input(SDL_Event & e)
 			else
 				toggle_tile_state(e.button.x, e.button.y); 
 			break;
-		case SDL_BUTTON_RIGHT: place_pattern(e.button.x, e.button.y); break;
+		case SDL_BUTTON_RIGHT: rotate_pattern(); break;
 		}
 		break;
 	case SDL_KEYDOWN:

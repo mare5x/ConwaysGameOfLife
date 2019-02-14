@@ -220,7 +220,7 @@ namespace others {
 }
 
 
-std::vector<std::vector<const Blueprint*> > pattern_blueprints::all_patterns = {
+std::vector<std::vector<Blueprint*> > pattern_blueprints::all_patterns = {
 	{   // STILL LIFES
 		&still_lifes::block,
 		&still_lifes::beehive,
@@ -256,36 +256,82 @@ std::vector<std::vector<const Blueprint*> > pattern_blueprints::all_patterns = {
 	}
 };
 
-std::vector<const Blueprint*>& pattern_blueprints::still_lifes = 
+std::vector<Blueprint*>& pattern_blueprints::still_lifes = 
 	pattern_blueprints::all_patterns[pattern_blueprints::STILL_LIFES];
 
-std::vector<const Blueprint*>& pattern_blueprints::oscillators =
+std::vector<Blueprint*>& pattern_blueprints::oscillators =
 	pattern_blueprints::all_patterns[pattern_blueprints::OSCILLATORS];
 
-std::vector<const Blueprint*>& pattern_blueprints::spaceships =
+std::vector<Blueprint*>& pattern_blueprints::spaceships =
 	pattern_blueprints::all_patterns[pattern_blueprints::SPACESHIPS];
 
-std::vector<const Blueprint*>& pattern_blueprints::others =
+std::vector<Blueprint*>& pattern_blueprints::others =
 	pattern_blueprints::all_patterns[pattern_blueprints::OTHERS];
+
+
+// Transform the given [row, col] in blueprint coordinates 
+// to rotated blueprint coordinates. 
+// Blueprint coordinate origin is the top left corner, with rows increasing
+// downwards.
+__host__ __device__ void get_rotated_coordinates(int rotation, int height, int width, int* row, int* col)
+{
+	// Work it out on paper to see that this recursive formula works.
+	while (rotation > 0) {
+		int tmp = *row;
+		*row = width - *col - 1;
+		*col = tmp;
+
+		tmp = height;
+		height = width;
+		width = tmp;
+		rotation -= 90;
+	}
+}
 
 void Pattern::build(WORLD_T * world, int w_rows, int w_cols, int row, int col) const
 {
 	for (int i = 0; i < rows; ++i) {
 		for (int j = 0; j < cols; ++j) {
 			char val = pattern[i * cols + j] - '0';
+
+			// Apply the rotation if necessary.
+			int rot_i = i;
+			int rot_j = j;
+			if (rotation > 0)
+				get_rotated_coordinates(&rot_i, &rot_j);
+
 			// (0,0) is at the bottom left
-			int prow = (w_rows + row - i) % w_rows;
-			int pcol = (w_cols + col + j) % w_cols;
+			int prow = (w_rows + row - rot_i) % w_rows;
+			int pcol = (w_cols + col + rot_j) % w_cols;
 			int idx = prow * w_cols + pcol;
 			world[idx] = val;
 		}
 	}
 }
 
+__host__ __device__ void Pattern::get_rotated_coordinates(int * row, int * col) const
+{
+	::get_rotated_coordinates(rotation, rows, cols, row, col);
+}
+
 void MultiPattern::build(WORLD_T * world, int rows, int cols, int row, int col) const
 {
-	for (int i = 0; i < blueprints.size(); ++i)
-		blueprints[i]->build(world, rows, cols, row + row_offsets[i], col + col_offsets[i]);
+	// We have to take the rotation into account.
+	// Rotate the individual components (done in set_rotation) 
+	// and also correct the row and col offsets.
+	for (int i = 0; i < blueprints.size(); ++i) {
+		int row_offset = row_offsets[i];
+		int col_offset = col_offsets[i];
+
+		// A more elegant solution for not having to deal with 
+		// rotated offsets would be to apply the rotation only  
+		// when building Patterns. However that would require
+		// each Pattern to know about the dimensions of 
+		// it's root parent MultiPattern. Maybe later? // TODO
+		get_rotated_offset(blueprints[i], row_offset, col_offset);
+
+		blueprints[i]->build(world, rows, cols, row + row_offset, col + col_offset);
+	}
 }
 
 int MultiPattern::width() const
@@ -308,4 +354,36 @@ int MultiPattern::height() const
 		bot = std::min(bot, row_offsets[i] - blueprints[i]->height());
 	}
 	return top - bot;
+}
+
+void MultiPattern::set_rotation(int deg) 
+{
+	for (Blueprint* blueprint : blueprints)
+		blueprint->set_rotation(deg);
+}
+
+void MultiPattern::get_rotated_offset(const Blueprint* blueprint, int & row_offset, int & col_offset) const
+{
+	int rotation = get_rotation() % 360;
+
+	// -1 because get_rotated_coordinates assumes y down is positive.
+	row_offset *= -1;
+	::get_rotated_coordinates(rotation, height(), width(), &row_offset, &col_offset);
+
+	// The point was rotated, but now we have to bring it back to the 
+	// top left corner of the given blueprint:
+	switch (rotation) {
+	case 90: 
+		row_offset -= blueprint->width() + 1;
+		break;
+	case 180: 
+		row_offset -= blueprint->height() + 1;
+		col_offset -= blueprint->width() + 1;
+		break;
+	case 270: 
+		col_offset -= blueprint->height() + 1;
+		break;
+	}
+
+	row_offset *= -1;
 }

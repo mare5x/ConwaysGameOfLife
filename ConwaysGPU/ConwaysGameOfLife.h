@@ -54,11 +54,12 @@ private:
 	void set_blueprint(const Blueprint& blueprint, int row, int col) {
 		blueprint.build(initial_world_state.data(), ROWS, COLS, row, col);
 	}
+	void rotate_pattern();
 	void toggle_pattern_hovering();
 	void update_pattern_hover(int x, int y, bool force = false);
 	void update_pattern_hover(bool force = false);
 	void next_pattern(pattern_blueprints::PatternCategory category);
-	const Blueprint& get_blueprint(const vec2<int>& index2) const;
+	Blueprint& get_blueprint(const vec2<int>& index2) const;
 
 	void print_stats() const;
 
@@ -89,6 +90,7 @@ private:
 	// [y] : index in category
 	int blueprint_indices[pattern_blueprints::_N_PATTERN_CATEGORIES] = {};
 	vec2<int> current_blueprint, pattern_blueprint;
+	int pattern_rotation = 0;
 	vec2<int> pattern_tile;
 
 	// We can't just use an std::array or something similar because 

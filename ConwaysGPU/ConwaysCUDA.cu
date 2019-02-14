@@ -32,14 +32,12 @@ namespace {
 			}
 		}
 		
-		void to_gpu(const Pattern& pattern)
+		Pattern* to_gpu(const Pattern& pattern)
 		{
 			// Check if it's cached.
 			auto entry = cache.find(pattern.pattern);
-			if (entry != cache.end()) {
-				cur_pattern = &(*entry).second;
-				return;
-			}
+			if (entry != cache.end())
+				return entry->second.d_pattern;
 
 			// Copy it to the GPU.
 			DevicePattern dev_pat;
@@ -63,18 +61,19 @@ namespace {
 			);
 			
 			// Save it to the cache.
-			cache.insert({ pattern.pattern, dev_pat });
-			cur_pattern = &dev_pat;
-		}
+			auto pair = cache.insert({ pattern.pattern, dev_pat });
+			
+			return pair.first->second.d_pattern;
 
-		const Pattern* get_pattern_ptr() const { return cur_pattern->d_pattern; }
+			// AM I RETARtED?!?!? dev_pat is a only a LOCAL variable!
+			// Why did this even work before?!?!? (it was cur_pattern = &dev_pat;)
+			//cur_pattern = &pair.first->second;
+		}
 	private:
 		struct DevicePattern {
 			Pattern* d_pattern;
 			char* d_pattern_str;
 		};
-		
-		DevicePattern* cur_pattern;
 
 		// Cache from <pattern string> to <DevicePattern>.
 		std::unordered_map<const char*, DevicePattern> cache;
@@ -341,6 +340,8 @@ void build_pattern_kernel(CELL_AGE_T* cell_age, CELL_STATUS_T* cell_status,
 		int2 pattern_cell = get_grid_cell(cell_idx, pattern->cols);
 		char val = pattern->pattern[cell_idx] - '0';
 
+		pattern->get_rotated_coordinates(&pattern_cell.x, &pattern_cell.y);
+
 		// (0,0) is at the bottom left
 		int idx = get_world_index(row - pattern_cell.x, col + pattern_cell.y);
 		switch (type) {
@@ -358,6 +359,12 @@ void build_pattern_kernel(CELL_AGE_T* cell_age, CELL_STATUS_T* cell_status,
 	}
 }
 
+__global__
+void update_pattern_kernel(Pattern* d_pattern, int rotation)
+{
+	d_pattern->rotation = rotation;
+}
+
 void set_pattern(const Pattern& pattern, int row, int col, PatternMode type)
 {
 	// This function is the biggest CPU bottleneck when hovering patterns!
@@ -367,10 +374,15 @@ void set_pattern(const Pattern& pattern, int row, int col, PatternMode type)
 	// The option I chose was the simplest: caching in PatternCache.
 	// That fixed the to_gpu() problem. But now the bottleneck is in WorldVBOMapper.
 	// The solution is to map right at the start of pattern building 
-	// (in set_pattern(Blueprint ...)).
+	// (in set_pattern(Blueprint ...)) or some earlier time ...
 
 	// We have to send the Pattern to the GPU.
-	pattern_cache.to_gpu(pattern);
+	Pattern* d_pattern = pattern_cache.to_gpu(pattern);
+
+	// TODO: a better way to do this ...
+	// e.g. pass the Pattern directly to build_pattern_kernel, with only the
+	// pattern strings cached. Then we wouldn't have to worry about updates to rotation.
+	update_pattern_kernel<<<1,1>>>(d_pattern, pattern.rotation);
 
 	// Make a thread for each cell in the pattern.
 	const uint block_size = 64;
@@ -378,15 +390,18 @@ void set_pattern(const Pattern& pattern, int row, int col, PatternMode type)
 	uint num_blocks = (grid_size + block_size - 1) / block_size;
 	build_pattern_kernel<<<num_blocks, block_size>>>(
 		vbo_mapper.get_cell_age(), vbo_mapper.get_cell_status(), 
-		pattern_cache.get_pattern_ptr(), row, col, type);
+		d_pattern, row, col, type);
 }
 
 void set_pattern(const MultiPattern& pattern, int row, int col, PatternMode type)
 {
 	for (int i = 0; i < pattern.blueprints.size(); ++i) {
+		int row_offset = pattern.row_offsets[i];
+		int col_offset = pattern.col_offsets[i];
+		pattern.get_rotated_offset(pattern.blueprints[i], row_offset, col_offset);
 		set_pattern(*pattern.blueprints[i], 
-					row + pattern.row_offsets[i], 
-					col + pattern.col_offsets[i], type);
+					row + row_offset, 
+					col + col_offset, type);
 	}
 }
 
