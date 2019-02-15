@@ -113,7 +113,9 @@ void Renderer::set_world_grid(const CELL_STATUS_T * world)
 	glBindBuffer(GL_ARRAY_BUFFER, vbo_states[ConwaysCUDA::CELL_AGE]);
 	CELL_AGE_T* cell_ages = (CELL_AGE_T*)glMapBuffer(GL_ARRAY_BUFFER, GL_WRITE_ONLY);
 	for (int i = 0; i < rows * cols; ++i)
-		cell_ages[i] = world[i];
+		// A workaround because the fragment shader requires initial cell ages
+		// to be less than a certain threshold to display properly. TODO fix
+		cell_ages[i] = world[i] * 1234 - 1233;
 	glUnmapBuffer(GL_ARRAY_BUFFER);
 
 	glBindBuffer(GL_ARRAY_BUFFER, 0);

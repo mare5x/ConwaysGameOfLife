@@ -1,7 +1,5 @@
 #version 330 core
 
-#define PI 3.14159265
-
 uniform vec2 screen_size;
 uniform int rows;
 uniform int cols;
@@ -15,7 +13,14 @@ flat in int tile_age;
 out vec4 frag;
 
 const vec2 base_camera_center = vec2(0.5, 0.5);
-const float MAX_GRID_K = 16;
+
+#define PI						3.14159265
+#define MAX_GRID_K				32.0		// higher number -> more grid tiles
+#define BREATHE_PERIOD		    128.0		// in ticks
+#define FADE_AWAY_PERIOD        32.0		// in ticks
+#define FADE_AWAY_THRESHOLD     0.2			// min scaling factor (alpha)
+#define FADE_AWAY_THRESHOLD_X   (pow(1 / FADE_AWAY_THRESHOLD, 1 / 8.0) - 1.0) 
+
 
 bool point_on_grid(vec2 screen_pos, int parts, int width)
 {
@@ -75,22 +80,25 @@ void main()
 	//  k >  0; k ticks alive
 	//  k <= 0; k ticks dead
 
-	// Mouse hovering a pattern
+	// Mouse hovering a pattern.
 	if (tile_state >= 2) {
 		frag = vec4(0, 1, 0, 1) * (tile_state / 31.0);
 		return;
 	}
 
+	// Alive.
 	if (tile_age > 0) {
-		float x = tile_age / 128.0;
+		float x = tile_age / BREATHE_PERIOD;
 		float age = 0.7 + 0.3 * cos(2 * PI * x);
 		frag = vec4(1, 0, 0, 1) * age;
-	} else if (tile_age < 0 && tile_state < 0) {
+	} // Previous neighbours.
+	else if (tile_age < 0 && tile_state < 0) {
 		frag = vec4(0.7, 0.2, 0.4, 1) * mix(0.2, 1.0, tile_state / -8.0f);	
-	} else if (tile_age < 0) {
-		float x = tile_age / -128.0;
-		float age = pow(x + 1, -8);
-		if (age > 0.1)
-			frag = vec4(1, 0, 0.5, 0.6) * age;	
+	} // Dead.
+	else if (tile_age >= -FADE_AWAY_PERIOD) {
+		// Note: for this part to work as expected, tile age should be
+		// initialized to a number less than FADE_AWAY_PERIOD ... TODO
+		float x = tile_age / -FADE_AWAY_PERIOD * FADE_AWAY_THRESHOLD_X;
+		frag = vec4(1, 0, 0.5, 0.6) * pow(x + 1, -8);	
 	}
 }
