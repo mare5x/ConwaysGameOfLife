@@ -25,58 +25,35 @@ namespace {
 	public:
 		~PatternCache()
 		{
-			for (const auto& entry : cache) {
-				const DevicePattern& d_pat = entry.second;
-				checkCudaErrors(cudaFree(d_pat.d_pattern));
-				checkCudaErrors(cudaFree(d_pat.d_pattern_str));
-			}
+			for (const auto& entry : cache)
+				checkCudaErrors(cudaFree(entry.second));
 		}
 		
-		Pattern* to_gpu(const Pattern& pattern)
+		const char* to_gpu(const Pattern& pattern)
 		{
 			// Check if it's cached.
 			auto entry = cache.find(pattern.pattern);
 			if (entry != cache.end())
-				return entry->second.d_pattern;
+				return entry->second;
 
-			// Copy it to the GPU.
-			DevicePattern dev_pat;
+			// Copy only the pattern string to the GPU.
+			char* d_pattern_str;
 			size_t pattern_bytes = pattern.rows * pattern.cols * sizeof(char);
 
-			checkCudaErrors(cudaMalloc(&dev_pat.d_pattern, sizeof(Pattern)));
-			checkCudaErrors(cudaMalloc(&dev_pat.d_pattern_str, pattern_bytes));
+			checkCudaErrors(cudaMalloc(&d_pattern_str, pattern_bytes));
 				
 			checkCudaErrors(
-				cudaMemcpy(dev_pat.d_pattern_str, pattern.pattern, 
-						   pattern_bytes, cudaMemcpyHostToDevice
-						  )
+				cudaMemcpy(d_pattern_str, pattern.pattern, 
+						   pattern_bytes, cudaMemcpyHostToDevice)
 			);
 
-			Pattern pattern_cpy = pattern;
-			pattern_cpy.pattern = dev_pat.d_pattern_str;
-			checkCudaErrors(
-				cudaMemcpy(dev_pat.d_pattern, &pattern_cpy, 
-						   sizeof(Pattern), cudaMemcpyHostToDevice
-						  )
-			);
-			
 			// Save it to the cache.
-			auto pair = cache.insert({ pattern.pattern, dev_pat });
-			
-			return pair.first->second.d_pattern;
-
-			// AM I RETARtED?!?!? dev_pat is a only a LOCAL variable!
-			// Why did this even work before?!?!? (it was cur_pattern = &dev_pat;)
-			//cur_pattern = &pair.first->second;
+			auto pair = cache.insert({ pattern.pattern, d_pattern_str });
+			return pair.first->second;
 		}
 	private:
-		struct DevicePattern {
-			Pattern* d_pattern;
-			char* d_pattern_str;
-		};
-
-		// Cache from <pattern string> to <DevicePattern>.
-		std::unordered_map<const char*, DevicePattern> cache;
+		// Cache from <pattern string> to <device pattern string>.
+		std::unordered_map<const char*, char*> cache;
 	};
 
 	// A utility class for mapping OpenGL VBOs for CUDA usage.
@@ -330,17 +307,17 @@ void toggle_cell_kernel(CELL_AGE_T* cell_age, CELL_STATUS_T* cell_status, int id
 //   3. remove hover
 __global__
 void build_pattern_kernel(CELL_AGE_T* cell_age, CELL_STATUS_T* cell_status, 
-						  const Pattern* pattern, int row, int col, PatternMode type)
+						  const Pattern pattern, int row, int col, PatternMode type)
 {
 	// Thread index of cell in pattern.
 	int thread_idx = blockDim.x * blockIdx.x + threadIdx.x;
 	int stride = blockDim.x * gridDim.x;
-	int size = pattern->cols * pattern->rows;
+	int size = pattern.cols * pattern.rows;
 	for (int cell_idx = thread_idx; cell_idx < size; cell_idx += stride) {
-		int2 pattern_cell = get_grid_cell(cell_idx, pattern->cols);
-		char val = pattern->pattern[cell_idx] - '0';
+		int2 pattern_cell = get_grid_cell(cell_idx, pattern.cols);
+		char val = pattern.pattern[cell_idx] - '0';
 
-		pattern->get_rotated_coordinates(&pattern_cell.x, &pattern_cell.y);
+		pattern.get_rotated_coordinates(&pattern_cell.x, &pattern_cell.y);
 
 		// (0,0) is at the bottom left
 		int idx = get_world_index(row - pattern_cell.x, col + pattern_cell.y);
@@ -359,12 +336,6 @@ void build_pattern_kernel(CELL_AGE_T* cell_age, CELL_STATUS_T* cell_status,
 	}
 }
 
-__global__
-void update_pattern_kernel(Pattern* d_pattern, int rotation)
-{
-	d_pattern->rotation = rotation;
-}
-
 void set_pattern(const Pattern& pattern, int row, int col, PatternMode type)
 {
 	// This function is the biggest CPU bottleneck when hovering patterns!
@@ -376,13 +347,13 @@ void set_pattern(const Pattern& pattern, int row, int col, PatternMode type)
 	// The solution is to map right at the start of pattern building 
 	// (in set_pattern(Blueprint ...)) or some earlier time ...
 
-	// We have to send the Pattern to the GPU.
-	Pattern* d_pattern = pattern_cache.to_gpu(pattern);
-
-	// TODO: a better way to do this ...
-	// e.g. pass the Pattern directly to build_pattern_kernel, with only the
-	// pattern strings cached. Then we wouldn't have to worry about updates to rotation.
-	update_pattern_kernel<<<1,1>>>(d_pattern, pattern.rotation);
+	// We have to send the Pattern to the GPU. The pattern string
+	// gets cached and the pattern contents get copied to the GPU.
+	// However, we have to point pattern.pattern to the device string
+	// otherwise the GPU would try to access host memory.
+	const char* d_pattern_str = pattern_cache.to_gpu(pattern);
+	Pattern pattern_cpy = pattern;
+	pattern_cpy.pattern = d_pattern_str;
 
 	// Make a thread for each cell in the pattern.
 	const uint block_size = 64;
@@ -390,7 +361,7 @@ void set_pattern(const Pattern& pattern, int row, int col, PatternMode type)
 	uint num_blocks = (grid_size + block_size - 1) / block_size;
 	build_pattern_kernel<<<num_blocks, block_size>>>(
 		vbo_mapper.get_cell_age(), vbo_mapper.get_cell_status(), 
-		d_pattern, row, col, type);
+		pattern_cpy, row, col, type);
 }
 
 void set_pattern(const MultiPattern& pattern, int row, int col, PatternMode type)
