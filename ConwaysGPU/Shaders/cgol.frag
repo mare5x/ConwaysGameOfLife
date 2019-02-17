@@ -6,6 +6,7 @@ uniform int cols;
 uniform float zoom;
 uniform vec2 camera_center;  // in [0, 1] coordinates
 uniform bool show_grid;
+uniform bool show_sfx;  // special effects
 
 flat in int tile_state;
 flat in int tile_age;
@@ -83,6 +84,13 @@ void main()
 	// Mouse hovering a pattern.
 	if (tile_state >= 2) {
 		frag = vec4(0, 1, 0, 1) * (tile_state / 31.0);
+		return;
+	}
+
+	// Don't show special effects, only dead/alive.
+	if (!show_sfx) {
+		if (tile_state > 0)
+			frag = vec4(1, 0, 0, 1);	
 		return;
 	}
 

@@ -30,6 +30,7 @@ Tested on a _NVIDIA GeForce GTX 1060 (6 GB)_ GPU with _Windows 10 (64-bit)_. Com
  * **R** to randomize the world.
  * **Q** and **E** to decrease/increase the tick rate.
  * **G** to show/hide grid lines.
+ * **F** to show/hide special effects (cell age ...).
  * **P** to print some stats to the console.
  * **TAB** to toggle mouse over pattern previews.
  * **1** to cycle between preset _still life_ patterns.

@@ -401,6 +401,7 @@ void ConwaysGameOfLife::handle_input(SDL_Event & e)
 			case SDLK_c: clear_world(); break;
 			case SDLK_x: reset_simulation(); break;
 			case SDLK_g: renderer.set_grid_visibility(is_grid_visible = !is_grid_visible); break;
+			case SDLK_f: renderer.set_special_effects(special_effects_visible = !special_effects_visible); break;
 
 			case SDLK_w: if (camera_velocity.y > 0) camera_velocity.y = 0; break;
 			case SDLK_s: if (camera_velocity.y < 0) camera_velocity.y = 0; break;

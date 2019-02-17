@@ -77,6 +77,7 @@ private:
 	// --- Game specifics --- //
 	bool is_playing = false;
 	bool is_grid_visible = true;
+	bool special_effects_visible = true;
 	bool is_pattern_hovering = false;
 	bool simulation_started = false;
 	unsigned int generation = 0;

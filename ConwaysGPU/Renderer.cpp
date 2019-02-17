@@ -73,6 +73,7 @@ void Renderer::init(int rows, int cols)
 	shader.setInt("cols", cols);
 	shader.setFloat("zoom", 1.0);
 	shader.setBool("show_grid", true);
+	shader.setBool("show_sfx", true);
 
 	ConwaysCUDA::init(rows, cols, vbo_states);
 }
@@ -125,6 +126,12 @@ void Renderer::set_grid_visibility(bool visible)
 {
 	shader.use();
 	shader.setBool("show_grid", visible);
+}
+
+void Renderer::set_special_effects(bool sfx)
+{
+	shader.use();
+	shader.setBool("show_sfx", sfx);
 }
 
 void Renderer::toggle_cell(int row, int col)
