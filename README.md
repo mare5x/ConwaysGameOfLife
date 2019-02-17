@@ -37,3 +37,7 @@ Tested on a _NVIDIA GeForce GTX 1060 (6 GB)_ GPU with _Windows 10 (64-bit)_. Com
  * **2** to cycle between preset _oscillator_ patterns.
  * **3** to cycle between preset _spaceship_ patterns.
  * **4** to cycle between other preset patterns (e.g. _shooters_).
+
+ #### Demo
+ 
+ ![Demo gif](./demo.gif)
