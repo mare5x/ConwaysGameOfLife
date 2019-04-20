@@ -128,8 +128,8 @@
     <CudaCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\..\..\libs\cpp\glad\src\glad.c" />
     <ClCompile Include="ConwaysGameOfLife.cpp" />
-    <ClCompile Include="glad.c" />
     <CudaCompile Include="pattern_blueprints.cpp" />
     <ClCompile Include="Renderer.cpp" />
   </ItemGroup>
